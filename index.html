@@ -1789,6 +1789,87 @@ function curvaCongelacion(ings, totalPct) {
   return wrap(svg + readout + `<div style="font-size:11px;color:var(--gris3);margin-top:6px">${t('fc.note')}</div>`);
 }
 
+// ── ALÉRGENOS (14 de declaración obligatoria, Reglamento UE 1169/2011) ──
+const ALERGENOS=[
+ {c:'gluten', ic:'🌾', n:['Cereales con gluten','Cereals with gluten','Cereali con glutine','Glutenhaltiges Getreide']},
+ {c:'crustaceos', ic:'🦐', n:['Crustáceos','Crustaceans','Crostacei','Krebstiere']},
+ {c:'huevo', ic:'🥚', n:['Huevos','Eggs','Uova','Eier']},
+ {c:'pescado', ic:'🐟', n:['Pescado','Fish','Pesce','Fisch']},
+ {c:'cacahuete', ic:'🥜', n:['Cacahuetes','Peanuts','Arachidi','Erdnüsse']},
+ {c:'soja', ic:'🫘', n:['Soja','Soy','Soia','Soja']},
+ {c:'leche', ic:'🥛', n:['Leche','Milk','Latte','Milch']},
+ {c:'frutos_cascara', ic:'🌰', n:['Frutos de cáscara','Tree nuts','Frutta a guscio','Schalenfrüchte']},
+ {c:'apio', ic:'🥬', n:['Apio','Celery','Sedano','Sellerie']},
+ {c:'mostaza', ic:'🟡', n:['Mostaza','Mustard','Senape','Senf']},
+ {c:'sesamo', ic:'', n:['Sésamo','Sesame','Sesamo','Sesam']},
+ {c:'sulfitos', ic:'', n:['Sulfitos','Sulphites','Solfiti','Sulfite']},
+ {c:'altramuz', ic:'', n:['Altramuces','Lupin','Lupini','Lupinen']},
+ {c:'moluscos', ic:'🦪', n:['Moluscos','Molluscs','Molluschi','Weichtiere']},
+];
+function alergenosDe(ing){
+  const s=((ing.nombre||'')+' '+(ing.familia||'')).toLowerCase();
+  const r=new Set(); const has=(re)=>re.test(s);
+  if(has(/leche|nata|mantequilla|queso|mascarpone|yogur|mat[oó]|cuajada|requesón|ricotta|lactos|suero l[aá]cteo|dulce de leche|crema de leche|kefir|chocolate con leche|chocolate blanco|gianduja/)) r.add('leche');
+  if(has(/huevo|yema|clara|merengue|ovoproduct/)) r.add('huevo');
+  if(has(/almendra|avellana|pistacho|nuez|nueces|anacardo|macadamia|pec[aá]n|turr[oó]n|pralin|gianduja|mazap[aá]n|crocant|garrapi|pasta de (almendra|avellana|pistacho|fruto)/)) r.add('frutos_cascara');
+  if(has(/cacahuet|man[ií] /)) r.add('cacahuete');
+  if(has(/soja|lecitina/)) r.add('soja');
+  if(has(/s[eé]samo|tahin/)) r.add('sesamo');
+  if(has(/harina|galleta|bizcocho|cereal|trigo|cebada|centeno|avena|espelta|malta|gofre|barquillo|cucuruch|speculoos|oreo|crumble|brownie|cookie|migas de pan/)) r.add('gluten');
+  if(has(/sulfito|dióxido de azufre|vino |pasas|orejones|alb[aá]ricoque seco|fruta desecada/)) r.add('sulfitos');
+  if(has(/altramuz|lupin/)) r.add('altramuz');
+  if(has(/mostaza/)) r.add('mostaza');
+  if(has(/apio/)) r.add('apio');
+  if(has(/pescado|anchoa|at[uú]n|salm[oó]n|bacalao/)) r.add('pescado');
+  if(has(/gamba|langostino|crust[aá]ceo|cangrejo/)) r.add('crustaceos');
+  if(has(/mejill[oó]n|almeja|calamar|molusco|pulpo|ostra/)) r.add('moluscos');
+  return [...r];
+}
+// ── NUTRICIÓN por 100 g (energía por factores Atwater sobre los macros) ──
+function nutricionDe(f){
+  const t = calcularTotales(f);
+  const ings=(f.ingredientes||[]).map(fi=>{const ing=ingredientes.find(i=>i.id===fi.ing_id);return ing?{...fi,ing}:null;}).filter(Boolean);
+  const suma=ings.reduce((s,fi)=>s+(fi.porcentaje||0),0)||100;
+  let alc=0; ings.forEach(fi=>{ alc+=(fi.ing.alcohol||0)*(fi.porcentaje/suma); });
+  const azucares=t.az+t.lact;
+  const carbs=azucares;              // en helado, los hidratos son casi todo azúcares
+  const grasa=t.gt;
+  const sat=0.63*t.mg+0.30*t.og;     // estimación: grasa láctea ~63% sat, otras ~30%
+  const prot=t.prot;
+  const kcal=4*carbs+9*grasa+4*prot+7*alc;
+  const kj=kcal*4.184;
+  return {kj,kcal,grasa,sat,carbs,azucares,prot,alc};
+}
+function fichaAlergenosNutricion(f){
+  const L=(a)=>a[LANG]||a[0];
+  const ings=(f.ingredientes||[]).filter(fi=>(fi.porcentaje||0)>0).map(fi=>ingredientes.find(i=>i.id===fi.ing_id)).filter(Boolean);
+  const set=new Set(); ings.forEach(ing=>alergenosDe(ing).forEach(a=>set.add(a)));
+  const presentes=ALERGENOS.filter(a=>set.has(a.c));
+  const chips = presentes.length
+    ? presentes.map(a=>`<span style="display:inline-block;background:#fbe7d6;color:#b5641f;border:1px solid #f0c9a3;border-radius:999px;padding:3px 11px;font-size:12px;font-weight:700;margin:3px 4px 0 0">${a.ic?a.ic+' ':''}${L(a.n)}</span>`).join('')
+    : `<span style="color:#6E6A61;font-size:12px">${L(['No se han detectado alérgenos de declaración obligatoria.','No mandatory allergens detected.','Nessun allergene obbligatorio rilevato.','Keine kennzeichnungspflichtigen Allergene erkannt.'])}</span>`;
+  const n=nutricionDe(f);
+  const d1=(x)=>Math.round(x*10)/10;
+  const fila=(lab,val,bold,indent)=>`<tr><td style="padding:5px 8px;border-top:1px solid var(--gris2);${indent?'padding-left:22px;color:#6E6A61;':''}${bold?'font-weight:700;':''}">${lab}</td><td style="padding:5px 8px;border-top:1px solid var(--gris2);text-align:right;${bold?'font-weight:700;':''}">${val}</td></tr>`;
+  return `
+  <div style="margin-top:14px;background:#fff;border:1px solid var(--gris2);border-radius:10px;padding:14px 16px">
+    <div style="font-size:13px;font-weight:800;color:var(--azul);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">🏷️ ${L(['Alérgenos e información nutricional','Allergens & nutrition info','Allergeni e valori nutrizionali','Allergene & Nährwertangaben'])}</div>
+    <div style="font-size:11px;font-weight:700;color:#6E6A61;margin-bottom:5px">${L(['ALÉRGENOS · Reglamento UE 1169/2011','ALLERGENS · EU Reg. 1169/2011','ALLERGENI · Reg. UE 1169/2011','ALLERGENE · EU-VO 1169/2011'])}</div>
+    <div style="margin-bottom:14px">${chips}</div>
+    <div style="font-size:11px;font-weight:700;color:#6E6A61;margin-bottom:5px">${L(['INFORMACIÓN NUTRICIONAL · por 100 g','NUTRITION · per 100 g','VALORI NUTRIZIONALI · per 100 g','NÄHRWERTE · pro 100 g'])}</div>
+    <table style="width:100%;border-collapse:collapse;font-size:12.5px;background:#fafcfb;border-radius:6px;overflow:hidden">
+      ${fila(L(['Valor energético','Energy','Valore energetico','Brennwert']), Math.round(n.kj)+' kJ / '+Math.round(n.kcal)+' kcal', true, false)}
+      ${fila(L(['Grasas','Fat','Grassi','Fett']), d1(n.grasa)+' g', true, false)}
+      ${fila(L(['de las cuales saturadas (estim.)','of which saturates (est.)','di cui saturi (stim.)','davon gesättigte (gesch.)']), d1(n.sat)+' g', false, true)}
+      ${fila(L(['Hidratos de carbono','Carbohydrate','Carboidrati','Kohlenhydrate']), d1(n.carbs)+' g', true, false)}
+      ${fila(L(['de los cuales azúcares','of which sugars','di cui zuccheri','davon Zucker']), d1(n.azucares)+' g', false, true)}
+      ${fila(L(['Proteínas','Protein','Proteine','Eiweiß']), d1(n.prot)+' g', true, false)}
+      ${fila(L(['Sal','Salt','Sale','Salz']), '≈ 0 g', true, false)}
+    </table>
+    <div style="font-size:10px;color:#9a948a;margin-top:8px;line-height:1.4">⚠️ ${L(['Valores orientativos calculados automáticamente. Verifica los alérgenos (y posibles trazas) y completa saturadas y sal según tus ingredientes y proveedores antes de usarlos en una etiqueta oficial.','Auto-calculated indicative values. Verify allergens (and possible traces) and complete saturates and salt per your ingredients before using on an official label.','Valori indicativi calcolati automaticamente. Verifica allergeni e completa grassi saturi e sale prima dell’uso su un’etichetta ufficiale.','Automatisch berechnete Richtwerte. Allergene prüfen sowie gesättigte Fette und Salz ergänzen, bevor sie auf einem offiziellen Etikett verwendet werden.'])}</div>
+  </div>`;
+}
+
 function renderDetalleFormula(id) {
   const f = formulas.find(x=>x.id===id);
   if (!f) return;
@@ -1976,6 +2057,7 @@ function renderDetalleFormula(id) {
         ])}
         ${desgloseAzucares(ings, totalPct)}
         ${analisisSensibilidad(f, ings, totalPct, tot)}
+        ${fichaAlergenosNutricion(f)}
         </div>
       <div style="background:#21403C;color:white;border-radius:0 0 8px 8px;padding:8px 16px;font-size:12px;font-weight:600;border-top:2px solid rgba(255,255,255,0.2);position:sticky;bottom:0;z-index:10" class="total-bar">
         ${Math.abs(tot.pct-100)<0.01?'✅':'⚠️'} ${t('bar.total')} <strong>${f2(tot.pct)}%</strong>
