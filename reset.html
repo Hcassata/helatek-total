@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Helatek · Nueva contraseña</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.0/dist/umd/supabase.js"></script>
+<style>
+  :root{--verde:#2A4A44;--verde2:#21403C;--crema:#F5F3EE;--gris:#6b7d78;--gris2:#dfe8e5;--rojo:#c0564a}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Segoe UI',system-ui,-apple-system,Helvetica,Arial,sans-serif;background:linear-gradient(160deg,#2F514A,#21403C);min-height:100vh;display:flex;align-items:center;justify-content:center}
+  .box{background:var(--crema);padding:34px 30px;border-radius:18px;width:340px;max-width:90vw;box-shadow:0 20px 60px rgba(0,0,0,.35);text-align:center}
+  .t{font-size:24px;font-weight:800;color:var(--verde2)}
+  .s{font-size:13px;color:var(--gris);margin:4px 0 20px}
+  input{width:100%;padding:11px 12px;margin-bottom:10px;border:1px solid var(--gris2);border-radius:9px;font-size:14px}
+  button{width:100%;padding:12px;background:var(--verde);color:#fff;border:none;border-radius:9px;font-size:15px;font-weight:700;cursor:pointer}
+  button:hover{background:var(--verde2)}
+  .msg{color:var(--rojo);font-size:12px;min-height:16px;margin-bottom:8px}
+  .ok{color:var(--verde);font-size:14px;line-height:1.5}
+</style>
+</head>
+<body>
+<div class="box">
+  <div class="t">Helatek</div>
+  <div class="s">Elige tu nueva contraseña</div>
+  <div id="form">
+    <input id="p1" type="password" placeholder="Nueva contraseña" autocomplete="new-password">
+    <input id="p2" type="password" placeholder="Repite la contraseña" autocomplete="new-password">
+    <div id="msg" class="msg"></div>
+    <button id="btn" onclick="guardar()">Guardar contraseña</button>
+  </div>
+</div>
+<script>
+const SUPABASE_URL='https://otcvaqijccboixomuwxr.supabase.co';
+const SUPABASE_KEY='sb_publishable_mzxr97ySxjXNTTTOP2xEFQ_Ho9rHIfX';
+const sbc=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{storageKey:'helatek-reset-auth',detectSessionInUrl:true}});
+
+async function guardar(){
+  const p1=document.getElementById('p1').value, p2=document.getElementById('p2').value;
+  const msg=document.getElementById('msg'), btn=document.getElementById('btn');
+  if((p1||'').length<6){ msg.textContent='Mínimo 6 caracteres.'; return; }
+  if(p1!==p2){ msg.textContent='Las contraseñas no coinciden.'; return; }
+  btn.disabled=true; btn.textContent='Guardando…'; msg.textContent='';
+  try{
+    const { data:{ session } } = await sbc.auth.getSession();
+    if(!session){ throw new Error('sin-sesion'); }
+    const { error } = await sbc.auth.updateUser({ password: p1 });
+    if(error) throw error;
+    document.getElementById('form').innerHTML='<p class="ok">✅ Contraseña guardada.<br>Ya puedes entrar en Helatek con tu nueva contraseña.</p>';
+  }catch(e){
+    if(e.message==='sin-sesion') msg.textContent='El enlace no es válido o ha caducado. Pide uno nuevo al administrador.';
+    else msg.textContent='No se pudo guardar. Inténtalo de nuevo o pide un enlace nuevo.';
+    btn.disabled=false; btn.textContent='Guardar contraseña';
+  }
+}
+</script>
+</body>
+</html>
