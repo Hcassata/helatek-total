@@ -325,6 +325,15 @@
   </form>
 </div>
 
+<div id="hk-bloqueo" style="display:none;position:fixed;inset:0;z-index:100001;background:linear-gradient(160deg,#2F514A,#21403C);align-items:center;justify-content:center;font-family:'Segoe UI',system-ui,-apple-system,sans-serif">
+  <div style="background:#F5F3EE;padding:34px 30px;border-radius:18px;width:380px;max-width:90vw;box-shadow:0 20px 60px rgba(0,0,0,.35);text-align:center">
+    <div style="font-size:42px">🔒</div>
+    <div style="font-size:18px;font-weight:800;color:#21403C;margin-top:6px">Límite de dispositivos cubierto</div>
+    <p style="font-size:13px;color:#4a615c;margin:12px 0 18px;line-height:1.5">Esta licencia ya tiene sus <b>dos dispositivos</b> activos. Para usar Helatek en este dispositivo, ponte en contacto con el administrador de tu licencia.</p>
+    <button onclick="location.reload()" style="width:100%;padding:12px;background:#2A4A44;color:#fff;border:none;border-radius:9px;font-size:15px;font-weight:700;cursor:pointer">Entendido</button>
+  </div>
+</div>
+
 <div id="sidebar">
   <div class="logo" style="padding:14px 12px 12px;text-align:center">
     <div style="background:#F6F3EE;border-radius:16px;padding:12px 10px 8px;box-shadow:0 2px 8px rgba(0,0,0,0.18)">
@@ -2947,6 +2956,38 @@ async function pushCloud(){
 }
 function pushCloudSoon(){ if(!CLOUD_ENABLED || !sb || !currentUser) return; clearTimeout(_pushT); _pushT = setTimeout(pushCloud, 1500); }
 
+function getDeviceId(){
+  let d = store.get('hk_device');
+  if(!d){ d = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : ('d'+Date.now()+'-'+Math.random().toString(36).slice(2)); store.set('hk_device', d); }
+  return d;
+}
+// Devuelve true si el dispositivo puede entrar; false si se superó el límite de 2
+async function registrarDispositivo(){
+  if(!sb || !currentUser) return true;
+  const devId = getDeviceId();
+  const nombre = (navigator.platform || 'Dispositivo') + ' · ' + (navigator.userAgentData && navigator.userAgentData.brands && navigator.userAgentData.brands[0] ? navigator.userAgentData.brands[0].brand : 'navegador');
+  try{
+    const { data: existing, error: e1 } = await sb.from('dispositivos').select('id').eq('user_id', currentUser.id).eq('device_id', devId).maybeSingle();
+    if(e1) throw e1;
+    if(existing){
+      sb.from('dispositivos').update({ ultimo_acceso: new Date().toISOString() }).eq('id', existing.id).then(()=>{}, ()=>{});
+      return true;
+    }
+    const { error: e2 } = await sb.from('dispositivos').insert({ user_id: currentUser.id, device_id: devId, nombre });
+    if(e2){
+      const m = (e2.message||'') + ' ' + (e2.code||'');
+      if(m.indexOf('LIMITE_DISPOSITIVOS') >= 0 || e2.code === 'P0001') return false; // límite alcanzado
+      console.warn('registrarDispositivo', e2); return true; // otro error (red, etc.): no bloquear
+    }
+    return true;
+  }catch(e){ console.warn('registrarDispositivo catch', e); return true; /* sin conexión: no bloquear */ }
+}
+async function mostrarBloqueoDispositivo(){
+  try{ if(sb) await sb.auth.signOut(); }catch(e){}
+  ocultarLogin();
+  const o=document.getElementById('hk-bloqueo'); if(o) o.style.display='flex';
+}
+
 function cargarDatosLocalesYRender(){
   loadConfig();
   try {
@@ -2967,6 +3008,8 @@ function mostrarLogin(){ const o=document.getElementById('hk-login'); if(o) o.st
 function ocultarLogin(){ const o=document.getElementById('hk-login'); if(o) o.style.display='none'; }
 function mostrarUsuario(){ const b=document.getElementById('hk-logout'); if(b){ b.style.display='block'; const e=document.getElementById('hk-user-email'); if(e&&currentUser) e.textContent=currentUser.email||''; } }
 async function bootConDatos(){
+  const ok = await registrarDispositivo();
+  if(!ok){ await mostrarBloqueoDispositivo(); return; }
   await pullCloud();
   cargarDatosLocalesYRender();
   if(_cloudVacio){ pushCloud(); }
