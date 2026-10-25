@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Helatek I+D+I — Software de Formulación de Helados</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.0/dist/umd/supabase.js"></script>
 <link rel="icon" type="image/png" href="data:image/png;base64,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"/>
 <style>
   :root {
@@ -312,6 +313,18 @@
 <body>
 
 <!-- SIDEBAR -->
+<div id="hk-login" style="display:flex;position:fixed;inset:0;z-index:100000;background:linear-gradient(160deg,#2F514A,#21403C);align-items:center;justify-content:center;font-family:'Segoe UI',system-ui,-apple-system,sans-serif">
+  <form onsubmit="hacerLogin(event)" style="background:#F5F3EE;padding:34px 30px;border-radius:18px;width:320px;max-width:90vw;box-shadow:0 20px 60px rgba(0,0,0,.35);text-align:center">
+    <div style="font-size:24px;font-weight:800;color:#21403C;letter-spacing:-.3px">Helatek</div>
+    <div style="font-size:12px;color:#6b7d78;margin:4px 0 20px">Acceso al obrador</div>
+    <input id="hk-email" type="email" placeholder="Correo" autocomplete="username" style="width:100%;padding:11px 12px;margin-bottom:10px;border:1px solid #D6D2CA;border-radius:9px;font-size:14px;box-sizing:border-box">
+    <input id="hk-pass" type="password" placeholder="Contraseña" autocomplete="current-password" style="width:100%;padding:11px 12px;margin-bottom:6px;border:1px solid #D6D2CA;border-radius:9px;font-size:14px;box-sizing:border-box">
+    <div id="hk-login-msg" style="color:#c0564a;font-size:12px;min-height:16px;margin-bottom:8px"></div>
+    <button id="hk-login-btn" type="submit" style="width:100%;padding:12px;background:#2A4A44;color:#fff;border:none;border-radius:9px;font-size:15px;font-weight:700;cursor:pointer">Entrar</button>
+    <div style="font-size:11px;color:#9fb3ad;margin-top:16px">Basado en GelatMix · Pablo Galiana Masià</div>
+  </form>
+</div>
+
 <div id="sidebar">
   <div class="logo" style="padding:14px 12px 12px;text-align:center">
     <div style="background:#F6F3EE;border-radius:16px;padding:12px 10px 8px;box-shadow:0 2px 8px rgba(0,0,0,0.18)">
@@ -337,6 +350,7 @@
     <kbd>Alt+F</kbd> Fórmulas &nbsp; <kbd>Alt+I</kbd> Ingredientes<br>
     <kbd>Alt+N</kbd> Nueva fórmula &nbsp; <kbd>Esc</kbd> Cerrar
   </div>
+  <button id="hk-logout" onclick="hacerLogout()" style="display:none;margin:8px 10px 0;padding:7px;background:transparent;color:#9BBBB0;border:1px solid rgba(255,255,255,0.18);border-radius:6px;cursor:pointer;font-size:11px;line-height:1.3">⎋ Cerrar sesión<br><span id="hk-user-email" style="font-size:9px;opacity:.7"></span></button>
   <div class="sidebar-bottom">Helatek I+D+I v2.6 · COMPLETA</div>
 </div>
 
@@ -1006,6 +1020,7 @@ function saveData() {
   store.set('hkt_familias', JSON.stringify(familias));
   store.set('hkt_ingredientes', JSON.stringify(ingredientes));
   store.set('hkt_formulas', JSON.stringify(formulas));
+  if(typeof pushCloudSoon==='function') pushCloudSoon();
 }
 
 let cfg = {};
@@ -1031,6 +1046,7 @@ function loadConfig() {
 function saveConfig() {
   cfg.version = '2.3';
   store.set('hkt_config', JSON.stringify(cfg));
+  if(typeof pushCloudSoon==='function') pushCloudSoon();
 }
 
 // ════════════════════════════════════════════════════════════
@@ -2891,24 +2907,107 @@ function instalarIconos(){
   }catch(e){}
 }
 
-loadConfig();
-// Reset ingredientes si hay versión incompatible en caché
-try {
-  const testIng = store.get('hkt_ingredientes');
-  if (testIng) {
-    const arr = JSON.parse(testIng);
-    // Si el primer ingrediente no tiene el campo 'pac' correcto, limpiar
-    if (arr.length > 0 && (typeof arr[0].pac === 'undefined' || typeof arr[0].og === 'undefined')) {
-      store.remove('hkt_ingredientes');
-      store.remove('hkt_familias');
+// ═══════════════════════════════════════════════════════════
+// NUBE / LOGIN  (solo activo en la versión con licencia)
+// ═══════════════════════════════════════════════════════════
+const CLOUD_ENABLED = true;
+const SUPABASE_URL = 'https://otcvaqijccboixomuwxr.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_mzxr97ySxjXNTTTOP2xEFQ_Ho9rHIfX';
+let sb = null, currentUser = null, _cloudVacio = false, _pushT = null;
+
+function cloudInit(){
+  try { if(window.supabase && SUPABASE_URL){ sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY); } }
+  catch(e){ console.warn('cloudInit', e); }
+}
+async function pullCloud(){
+  if(!sb || !currentUser) return;
+  try{
+    const { data, error } = await sb.from('obrador_datos').select('datos').eq('user_id', currentUser.id).maybeSingle();
+    if(error) throw error;
+    if(data && data.datos && Object.keys(data.datos).length){
+      const d = data.datos;
+      if(d.formulas)     store.set('hkt_formulas', JSON.stringify(d.formulas));
+      if(d.config)       store.set('hkt_config', JSON.stringify(d.config));
+      if(d.familias)     store.set('hkt_familias', JSON.stringify(d.familias));
+      if(d.ingredientes) store.set('hkt_ingredientes', JSON.stringify(d.ingredientes));
+    } else { _cloudVacio = true; }
+  }catch(e){ console.warn('pullCloud (¿sin conexión?)', e); }
+}
+async function pushCloud(){
+  if(!CLOUD_ENABLED || !sb || !currentUser) return;
+  try{
+    const datos = {
+      formulas:     JSON.parse(store.get('hkt_formulas')||'[]'),
+      config:       JSON.parse(store.get('hkt_config')||'{}'),
+      familias:     JSON.parse(store.get('hkt_familias')||'[]'),
+      ingredientes: JSON.parse(store.get('hkt_ingredientes')||'[]')
+    };
+    await sb.from('obrador_datos').upsert({ user_id: currentUser.id, datos, updated_at: new Date().toISOString() });
+  }catch(e){ console.warn('pushCloud', e); }
+}
+function pushCloudSoon(){ if(!CLOUD_ENABLED || !sb || !currentUser) return; clearTimeout(_pushT); _pushT = setTimeout(pushCloud, 1500); }
+
+function cargarDatosLocalesYRender(){
+  loadConfig();
+  try {
+    const testIng = store.get('hkt_ingredientes');
+    if (testIng) {
+      const arr = JSON.parse(testIng);
+      if (arr.length > 0 && (typeof arr[0].pac === 'undefined' || typeof arr[0].og === 'undefined')) {
+        store.remove('hkt_ingredientes'); store.remove('hkt_familias');
+      }
     }
-  }
-} catch(e) { store.remove('hkt_ingredientes'); store.remove('hkt_familias'); }
-loadData();
-renderInicio();
-setLang(cfg.idioma || 'es');
-instalarIconos();
-if(!ES_DEMO){ try{ document.querySelectorAll('.demo-ribbon,.demo-badge').forEach(x=>x.style.display='none'); }catch(e){} }
+  } catch(e) { store.remove('hkt_ingredientes'); store.remove('hkt_familias'); }
+  loadData();
+  renderInicio();
+  setLang(cfg.idioma || 'es');
+  if(!ES_DEMO){ try{ document.querySelectorAll('.demo-ribbon,.demo-badge').forEach(x=>x.style.display='none'); }catch(e){} }
+}
+function mostrarLogin(){ const o=document.getElementById('hk-login'); if(o) o.style.display='flex'; }
+function ocultarLogin(){ const o=document.getElementById('hk-login'); if(o) o.style.display='none'; }
+function mostrarUsuario(){ const b=document.getElementById('hk-logout'); if(b){ b.style.display='block'; const e=document.getElementById('hk-user-email'); if(e&&currentUser) e.textContent=currentUser.email||''; } }
+async function bootConDatos(){
+  await pullCloud();
+  cargarDatosLocalesYRender();
+  if(_cloudVacio){ pushCloud(); }
+  ocultarLogin();
+  mostrarUsuario();
+}
+async function hacerLogin(ev){
+  if(ev) ev.preventDefault();
+  const email=(document.getElementById('hk-email').value||'').trim();
+  const pass=document.getElementById('hk-pass').value||'';
+  const msg=document.getElementById('hk-login-msg');
+  const btn=document.getElementById('hk-login-btn');
+  if(!email||!pass){ if(msg) msg.textContent='Introduce correo y contraseña.'; return; }
+  if(!sb){ if(msg) msg.textContent='No se pudo conectar. Revisa tu conexión.'; return; }
+  if(btn){ btn.disabled=true; btn.textContent='Entrando…'; }
+  if(msg) msg.textContent='';
+  try{
+    const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
+    if(error) throw error;
+    currentUser = data.user;
+    await bootConDatos();
+  }catch(e){
+    if(msg) msg.textContent='Correo o contraseña incorrectos.';
+  }finally{ if(btn){ btn.disabled=false; btn.textContent='Entrar'; } }
+}
+async function hacerLogout(){
+  try{ if(sb) await sb.auth.signOut(); }catch(e){}
+  location.reload();
+}
+async function iniciarApp(){
+  instalarIconos();
+  if(!CLOUD_ENABLED){ ocultarLogin(); cargarDatosLocalesYRender(); return; }
+  cloudInit();
+  if(!sb){ ocultarLogin(); cargarDatosLocalesYRender(); mostrarLogin(); return; }
+  try{
+    const { data } = await sb.auth.getSession();
+    if(data && data.session){ currentUser=data.session.user; await bootConDatos(); }
+    else { mostrarLogin(); }
+  }catch(e){ mostrarLogin(); }
+}
+iniciarApp();
 </script>
 </body>
 </html>
