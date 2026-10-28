@@ -194,6 +194,7 @@
   #ef-ing-tbody tr.ef-tot-row td { position: sticky; bottom: 0; z-index: 4; }
   .ef-ing-name { cursor:pointer; border-bottom:1px dashed #9BBBB0; }
   .ef-ing-name:hover { color: var(--azul2); border-bottom-color: var(--azul2); }
+  .ef-cambiar-item:hover { background:#FBF3EC; }
   .cmp-sel { min-width:190px; padding:7px 10px; border:1.5px solid #CFE0D9; border-radius:7px; font-size:13px; background:white; color:#21403C; font-weight:600; cursor:pointer; }
   .cmp-sel:focus { outline:none; border-color:#3C7B6F; }
   #cmp-tabla { width:100%; border-collapse:collapse; font-size:13px; }
@@ -2722,28 +2723,65 @@ let _dragIdx = null;
 
 // Reordenar con botones ▲/▼ (táctil + ratón)
 // Cambiar un ingrediente de la fórmula por otro (mantiene el peso/%)
+// Mismo buscador por texto que al añadir: escribir "pistacho" muestra todos
+// los ingredientes cuyo nombre contiene "pistacho".
 function efCambiarIng(idx){
   const fila = document.querySelector('#ef-ing-tbody tr[data-idx="'+idx+'"]');
   if(!fila) return;
   const cell = fila.children[1]; // 2ª celda = nombre
-  if(!cell || cell.querySelector('select')) return;
-  const actual = efIngredientes[idx] ? efIngredientes[idx].ing_id : null;
-  const porFam = {};
-  ingredientes.forEach(i => { (porFam[i.familia] = porFam[i.familia] || []).push(i); });
-  const fams = Object.keys(porFam).sort((a,b)=>a.localeCompare(b));
-  let opts = '';
-  fams.forEach(f => {
-    opts += '<optgroup label="'+f+'">';
-    porFam[f].sort((a,b)=>a.nombre.localeCompare(b.nombre)).forEach(i => {
-      opts += '<option value="'+i.id+'"'+(i.id===actual?' selected':'')+'>'+i.nombre+'</option>';
-    });
-    opts += '</optgroup>';
-  });
-  cell.innerHTML = '<select style="width:100%;max-width:190px;padding:3px 5px;border:1.5px solid #356B60;border-radius:5px;font-size:12px;font-weight:600;color:#21403C" '+
-    'onchange="if(efIngredientes['+idx+']){efIngredientes['+idx+'].ing_id=parseInt(this.value);} renderEfIngredientes();" '+
-    'onblur="renderEfIngredientes();">'+opts+'</select>';
-  const sel = cell.querySelector('select');
-  if(sel){ sel.focus(); }
+  if(!cell || cell.querySelector('.ef-cambiar-box')) return;
+  cell.innerHTML =
+    '<div class="ef-cambiar-box" style="position:relative">'+
+      '<input type="text" class="ef-cambiar-input" placeholder="🔍 Buscar..." '+
+        'style="width:100%;max-width:190px;padding:3px 6px;border:1.5px solid #356B60;border-radius:5px;font-size:12px;font-weight:600;color:#21403C" '+
+        'oninput="efCambiarFiltrar('+idx+',this.value)" '+
+        'onkeydown="if(event.key===\'Escape\'){renderEfIngredientes();}" '+
+        'onblur="efCambiarBlur('+idx+')">'+
+      '<div class="ef-cambiar-list"></div>'+
+    '</div>';
+  const inp = cell.querySelector('.ef-cambiar-input');
+  efCambiarFiltrar(idx, '');
+  if(inp){ inp.focus(); }
+}
+// Rellena la lista de coincidencias (filtro por "contiene", como el buscador de añadir)
+function efCambiarFiltrar(idx, q){
+  const fila = document.querySelector('#ef-ing-tbody tr[data-idx="'+idx+'"]');
+  if(!fila) return;
+  const box = fila.querySelector('.ef-cambiar-list');
+  const inp = fila.querySelector('.ef-cambiar-input');
+  if(!box) return;
+  const busq = (q||'').toLowerCase();
+  const lista = ingredientes
+    .filter(i => !busq || i.nombre.toLowerCase().includes(busq))
+    .sort((a,b)=>a.nombre.localeCompare(b.nombre));
+  // ¿abrir hacia abajo o hacia arriba? según espacio dentro del contenedor con scroll
+  let haciaArriba = false;
+  const wrap = document.getElementById('formula-ing-wrap');
+  if(wrap && inp){
+    const ir = inp.getBoundingClientRect(), wr = wrap.getBoundingClientRect();
+    if((wr.bottom - ir.bottom) < 180) haciaArriba = true;
+  }
+  const pos = haciaArriba ? 'bottom:26px' : 'top:26px';
+  box.setAttribute('style','position:absolute;z-index:50;left:0;'+pos+';width:230px;max-height:200px;overflow:auto;background:#fff;border:1.5px solid #356B60;border-radius:6px;box-shadow:0 6px 18px rgba(0,0,0,.18)');
+  box.innerHTML = lista.length
+    ? lista.map(i =>
+        '<div class="ef-cambiar-item" onmousedown="event.preventDefault()" onclick="efCambiarAplicar('+idx+','+i.id+')" '+
+        'style="padding:5px 8px;font-size:12px;cursor:pointer;border-bottom:1px solid #EEEAE3;white-space:nowrap">'+
+        i.nombre+' <span style="color:var(--gris3);font-size:10px">('+i.familia+')</span></div>'
+      ).join('')
+    : '<div style="padding:6px 8px;font-size:11px;color:var(--gris3)">Sin resultados</div>';
+}
+// Aplica el cambio manteniendo el peso/% de esa fila
+function efCambiarAplicar(idx, id){
+  if(efIngredientes[idx]) efIngredientes[idx].ing_id = id;
+  renderEfIngredientes();
+}
+// Al salir del campo (sin elegir) vuelve a la vista normal
+function efCambiarBlur(idx){
+  setTimeout(function(){
+    const fila = document.querySelector('#ef-ing-tbody tr[data-idx="'+idx+'"]');
+    if(fila && fila.querySelector('.ef-cambiar-input')) renderEfIngredientes();
+  }, 150);
 }
 
 function moverIngrediente(idx, dir) {
