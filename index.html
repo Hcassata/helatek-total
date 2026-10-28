@@ -539,6 +539,7 @@
         <div class="form-row"><label style="min-width:130px">Mano de obra</label><input id="cfg-cf-manoobra" type="number" step="0.01" min="0" style="flex:1;padding:7px 10px;border:1px solid var(--gris2);border-radius:5px"></div>
         <div class="form-row"><label style="min-width:90px">Luz y agua</label><input id="cfg-cf-luz" type="number" step="0.01" min="0" style="flex:1;padding:7px 10px;border:1px solid var(--gris2);border-radius:5px"></div>
         <div class="form-row"><label style="min-width:150px">Amortización maquinaria</label><input id="cfg-cf-amortizacion" type="number" step="0.01" min="0" style="flex:1;padding:7px 10px;border:1px solid var(--gris2);border-radius:5px"></div>
+        <div class="form-row"><label style="min-width:150px">Otros gastos indirectos</label><input id="cfg-cf-otros" type="number" step="0.01" min="0" style="flex:1;padding:7px 10px;border:1px solid var(--gris2);border-radius:5px"></div>
       </div>
       <p style="font-size:11px;color:var(--gris3);margin-top:8px">Estos importes son por cubeta y se aplican a todos los sabores. Los complementos/toppings se añaden en cada receta (afectan al coste, no a la formulación).</p>
     </div>
@@ -1084,7 +1085,8 @@ function loadConfig() {
   if (cfg.kgCubeta == null) cfg.kgCubeta = 4;
   if (cfg.iva == null) cfg.iva = 10;
   if (cfg.margenObj == null) cfg.margenObj = 60;
-  if (!cfg.costesFijos) cfg.costesFijos = { envase:0, tapa:0, etiqueta:0, manoObra:0, luz:0, amortizacion:0 };
+  if (!cfg.costesFijos) cfg.costesFijos = { envase:0, tapa:0, etiqueta:0, manoObra:0, luz:0, amortizacion:0, otros:0 };
+  if (cfg.costesFijos.otros == null) cfg.costesFijos.otros = 0;
 }
 function saveConfig() {
   cfg.version = '2.3';
@@ -1671,7 +1673,7 @@ function panelEscandallo(f, costeKg, sinPrecio, conPrecio) {
   const kgC = cfg.kgCubeta || 4;
   const iva = (cfg.iva!=null ? cfg.iva : 10);
   const cf = cfg.costesFijos || {};
-  const cfSum = (cf.envase||0)+(cf.tapa||0)+(cf.etiqueta||0)+(cf.manoObra||0)+(cf.luz||0)+(cf.amortizacion||0);
+  const cfSum = (cf.envase||0)+(cf.tapa||0)+(cf.etiqueta||0)+(cf.manoObra||0)+(cf.luz||0)+(cf.amortizacion||0)+(cf.otros||0);
   const toppings = f.toppings || [];
   const topSum = toppings.reduce((s,tp)=>s+toppingCoste(tp),0);
   const mult = (f.mult && f.mult>0) ? f.mult : (cfg.multiplicador||1.8);
@@ -1766,7 +1768,8 @@ function panelEscandallo(f, costeKg, sinPrecio, conPrecio) {
     ['etiqueta', EL('Etiqueta de papel','Paper label','Etichetta','Etikett')],
     ['manoObra', EL('Mano de obra (trabajo)','Labor','Manodopera','Arbeit')],
     ['luz', EL('Luz y agua','Power & water','Luce e acqua','Strom & Wasser')],
-    ['amortizacion', EL('Amortización de maquinaria','Equipment amortization','Ammortamento macchinari','Maschinen-Abschreibung')]
+    ['amortizacion', EL('Amortización de maquinaria','Equipment amortization','Ammortamento macchinari','Maschinen-Abschreibung')],
+    ['otros', EL('Otros gastos indirectos','Other indirect costs','Altri costi indiretti','Sonstige indirekte Kosten')]
   ];
   const filasFijos = cfCampos.map(([k,lab])=>
     '<div style="display:flex;align-items:center;gap:8px;padding:5px 10px;border-bottom:1px solid #F3EEE3">'+
@@ -2664,6 +2667,7 @@ function renderConfig() {
   document.getElementById('cfg-cf-manoobra').value=cf.manoObra||0;
   document.getElementById('cfg-cf-luz').value=cf.luz||0;
   document.getElementById('cfg-cf-amortizacion').value=cf.amortizacion||0;
+  document.getElementById('cfg-cf-otros').value=cf.otros||0;
   const lim = cfg.limites;
   const limFields = [
     ['Azúcares (%)','minAz','maxAz'],['GT Grasa Total (MG+OG) (%)','minMg','maxMg'],
@@ -2697,7 +2701,8 @@ function guardarConfig() {
     etiqueta:parseFloat(document.getElementById('cfg-cf-etiqueta').value)||0,
     manoObra:parseFloat(document.getElementById('cfg-cf-manoobra').value)||0,
     luz:parseFloat(document.getElementById('cfg-cf-luz').value)||0,
-    amortizacion:parseFloat(document.getElementById('cfg-cf-amortizacion').value)||0
+    amortizacion:parseFloat(document.getElementById('cfg-cf-amortizacion').value)||0,
+    otros:parseFloat(document.getElementById('cfg-cf-otros').value)||0
   };
   const lf = ['minAz','maxAz','minMg','maxMg','minEsml','maxEsml','minProt','maxProt',
                'minLact','maxLact','minST','maxST','minPOD','maxPOD','minPAC','maxPAC'];
