@@ -533,12 +533,12 @@
       </div>
       <div style="font-size:12px;font-weight:700;color:var(--azul);margin:14px 0 8px">Costes fijos por cubeta (€)</div>
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px 20px;max-width:600px">
-        <div class="form-row"><label style="min-width:90px">Envase</label><input id="cfg-cf-envase" type="number" step="0.01" min="0" style="flex:1;padding:7px 10px;border:1px solid var(--gris2);border-radius:5px"></div>
+        <div class="form-row"><label style="min-width:120px">Cubeta (envase)</label><input id="cfg-cf-envase" type="number" step="0.01" min="0" style="flex:1;padding:7px 10px;border:1px solid var(--gris2);border-radius:5px"></div>
         <div class="form-row"><label style="min-width:60px">Tapa</label><input id="cfg-cf-tapa" type="number" step="0.01" min="0" style="flex:1;padding:7px 10px;border:1px solid var(--gris2);border-radius:5px"></div>
-        <div class="form-row"><label style="min-width:70px">Etiqueta</label><input id="cfg-cf-etiqueta" type="number" step="0.01" min="0" style="flex:1;padding:7px 10px;border:1px solid var(--gris2);border-radius:5px"></div>
-        <div class="form-row"><label style="min-width:100px">Mano de obra</label><input id="cfg-cf-manoobra" type="number" step="0.01" min="0" style="flex:1;padding:7px 10px;border:1px solid var(--gris2);border-radius:5px"></div>
-        <div class="form-row"><label style="min-width:60px">Luz</label><input id="cfg-cf-luz" type="number" step="0.01" min="0" style="flex:1;padding:7px 10px;border:1px solid var(--gris2);border-radius:5px"></div>
-        <div class="form-row"><label style="min-width:100px">Amortización</label><input id="cfg-cf-amortizacion" type="number" step="0.01" min="0" style="flex:1;padding:7px 10px;border:1px solid var(--gris2);border-radius:5px"></div>
+        <div class="form-row"><label style="min-width:120px">Etiqueta de papel</label><input id="cfg-cf-etiqueta" type="number" step="0.01" min="0" style="flex:1;padding:7px 10px;border:1px solid var(--gris2);border-radius:5px"></div>
+        <div class="form-row"><label style="min-width:130px">Mano de obra</label><input id="cfg-cf-manoobra" type="number" step="0.01" min="0" style="flex:1;padding:7px 10px;border:1px solid var(--gris2);border-radius:5px"></div>
+        <div class="form-row"><label style="min-width:90px">Luz y agua</label><input id="cfg-cf-luz" type="number" step="0.01" min="0" style="flex:1;padding:7px 10px;border:1px solid var(--gris2);border-radius:5px"></div>
+        <div class="form-row"><label style="min-width:150px">Amortización maquinaria</label><input id="cfg-cf-amortizacion" type="number" step="0.01" min="0" style="flex:1;padding:7px 10px;border:1px solid var(--gris2);border-radius:5px"></div>
       </div>
       <p style="font-size:11px;color:var(--gris3);margin-top:8px">Estos importes son por cubeta y se aplican a todos los sabores. Los complementos/toppings se añaden en cada receta (afectan al coste, no a la formulación).</p>
     </div>
@@ -1657,6 +1657,12 @@ function efMultSet(id,val){
   if(isNaN(v)||v<=0) delete f.mult; else f.mult=v;
   saveData(); renderDetalleFormula(id);
 }
+// Costes fijos por cubeta (globales, se aplican a todos los sabores)
+function costeFijoSet(id, campo, val){
+  if(!cfg.costesFijos) cfg.costesFijos={envase:0,tapa:0,etiqueta:0,manoObra:0,luz:0,amortizacion:0};
+  cfg.costesFijos[campo]=parseFloat(val)||0;
+  saveConfig(); renderDetalleFormula(id);
+}
 
 // ── ESCANDALLO PROFESIONAL: cubeta, costes fijos, toppings, PVP, margen, IVA ──
 function panelEscandallo(f, costeKg, sinPrecio, conPrecio) {
@@ -1753,6 +1759,26 @@ function panelEscandallo(f, costeKg, sinPrecio, conPrecio) {
       '<span style="font-size:11px;color:var(--gris3)">'+(multPropio?EL('(propio)','(own)','(proprio)','(eigen)'):EL('(usa el global ×'+(cfg.multiplicador||1.8)+')','(uses global ×'+(cfg.multiplicador||1.8)+')','(usa il globale ×'+(cfg.multiplicador||1.8)+')','(nutzt global ×'+(cfg.multiplicador||1.8)+')'))+'</span>'+
     '</div>';
 
+  // editor de costes fijos por cubeta (globales) — editable aquí mismo
+  const cfCampos=[
+    ['envase', EL('Cubeta (envase)','Tub (container)','Vaschetta','Becher')],
+    ['tapa', EL('Tapa','Lid','Coperchio','Deckel')],
+    ['etiqueta', EL('Etiqueta de papel','Paper label','Etichetta','Etikett')],
+    ['manoObra', EL('Mano de obra (trabajo)','Labor','Manodopera','Arbeit')],
+    ['luz', EL('Luz y agua','Power & water','Luce e acqua','Strom & Wasser')],
+    ['amortizacion', EL('Amortización de maquinaria','Equipment amortization','Ammortamento macchinari','Maschinen-Abschreibung')]
+  ];
+  const filasFijos = cfCampos.map(([k,lab])=>
+    '<div style="display:flex;align-items:center;gap:8px;padding:5px 10px;border-bottom:1px solid #F3EEE3">'+
+      '<label style="flex:1;font-size:12px;color:#444">'+lab+'</label>'+
+      '<input type="number" step="0.01" min="0" value="'+((cf[k]!=null?cf[k]:0))+'" onchange="costeFijoSet('+id+',\''+k+'\',this.value)" style="'+inp+';width:90px;text-align:right"> <span style="font-size:11px;color:var(--gris3);width:14px">'+mon+'</span>'+
+    '</div>').join('');
+  const seccionFijos =
+    '<details style="margin-top:14px;border:1px solid #ECE8E0;border-radius:10px;overflow:hidden"'+(cfSum>0?'':' open')+'>'+
+      '<summary style="background:#FBF5EC;padding:8px 12px;font-size:12px;font-weight:800;color:#b45309;cursor:pointer">⚙️ '+EL('Costes fijos por cubeta','Fixed costs per tub','Costi fissi per vaschetta','Fixkosten pro Wanne')+' — '+f2(cfSum)+' '+mon+' <span style="font-weight:600;color:var(--gris3)">('+EL('se aplican a todos los sabores','applied to all flavors','applicati a tutti i gusti','für alle Sorten')+')</span></summary>'+
+      '<div style="padding:4px 2px">'+filasFijos+'</div>'+
+    '</details>';
+
   const chip=(lab,val,col,bg)=>'<div style="background:'+bg+';border-radius:8px;padding:9px 12px;border-left:4px solid '+col+'"><div style="font-size:10px;color:#6E6A61;font-weight:700;text-transform:uppercase;letter-spacing:.3px;margin-bottom:3px">'+lab+'</div><div style="font-size:19px;font-weight:800;color:'+col+'">'+val+'</div></div>';
 
   return `
@@ -1774,6 +1800,7 @@ function panelEscandallo(f, costeKg, sinPrecio, conPrecio) {
         ${chip(EL('PVP por kg','Retail per kg','Prezzo al kg','VK pro kg'), f2(pvpKg)+' '+mon, '#0e7490','#ECF6F8')}
       </div>
       ${multRow}
+      ${seccionFijos}
       ${seccionToppings}
       ${simulador}
       ${aviso}
