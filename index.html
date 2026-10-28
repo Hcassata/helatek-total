@@ -186,6 +186,14 @@
   }
   #ef-ing-tbody td { padding: 6px 8px !important; }
   #ef-ing-tbody tr.ef-tot-row td { background:#21403C !important; color:#fff; }
+  /* Cabecera verde fija + TOTALES fijo + scroll ~12 filas */
+  #modal-edit-formula div.edit-right { display:flex !important; flex-direction:column !important; overflow-y:hidden !important; min-height:0 !important; }
+  #formula-ing-wrap { flex:1 1 auto; min-height:0; overflow:auto; max-height: min(714px, 72vh); }
+  #formula-ing-table { border-collapse: separate !important; border-spacing: 0 !important; overflow: visible !important; margin-top: 0 !important; }
+  #formula-ing-table thead th { position: sticky; top: 0; z-index: 5; background: var(--azul); }
+  #ef-ing-tbody tr.ef-tot-row td { position: sticky; bottom: 0; z-index: 4; }
+  .ef-ing-name { cursor:pointer; border-bottom:1px dashed #9BBBB0; }
+  .ef-ing-name:hover { color: var(--azul2); border-bottom-color: var(--azul2); }
   .cmp-sel { min-width:190px; padding:7px 10px; border:1.5px solid #CFE0D9; border-radius:7px; font-size:13px; background:white; color:#21403C; font-weight:600; cursor:pointer; }
   .cmp-sel:focus { outline:none; border-color:#3C7B6F; }
   #cmp-tabla { width:100%; border-collapse:collapse; font-size:13px; }
@@ -620,12 +628,12 @@
           </div>
         </div>
         <!-- Right: formula ingredients -->
-        <div class="edit-right" style="overflow:auto">
-          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:4px;flex-wrap:wrap">
+        <div class="edit-right" style="display:flex;flex-direction:column;overflow:hidden;min-height:0">
+          <div style="flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:4px;flex-wrap:wrap">
             <div style="font-size:12px;font-weight:bold;color:var(--azul)">Ingredientes en la Fórmula</div>
             <button id="btn-auto-orden" onclick="toggleAutoOrden()" title="Ordenar automáticamente por orden de pasteurización (agua arriba)" style="font-size:11px;font-weight:700;color:#21403C;background:#EEF3F1;border:1.5px solid #CFE0D9;border-radius:7px;padding:5px 10px;cursor:pointer"></button>
           </div>
-          <div style="overflow-x:auto">
+          <div id="formula-ing-wrap" style="flex:1 1 auto;min-height:0;overflow:auto;max-height:min(714px,72vh)">
             <table id="formula-ing-table" style="width:100%;min-width:500px">
               <thead><tr style="background:var(--azul);color:white">
                 <th style="padding:6px 4px;width:34px"></th>
@@ -648,7 +656,7 @@
               <tbody id="ef-ing-tbody"></tbody>
             </table>
           </div>
-          <div id="ef-totales" style="margin-top:6px;padding:6px 12px;background:#21403C;color:white;border-radius:5px;font-size:12px;min-height:50px"></div>
+          <div id="ef-totales" style="flex:0 0 auto;margin-top:6px;padding:6px 12px;background:#21403C;color:white;border-radius:5px;font-size:12px;min-height:50px"></div>
         </div>
       </div>
     </div>
@@ -2202,7 +2210,7 @@ function renderEfIngredientes() {
     tot.st+=st_i;
     return `<tr class="ef-ing-row" draggable="true" data-idx="${idx}" style="background:${idx%2?'#FBFAF6':'white'}">
       <td class="reorder-cell">${autoOrden ? '' : `<button class="btn-reorder" onclick="moverIngrediente(${idx},-1)" ${idx===0?'disabled':''} title="Subir" aria-label="Subir">▲</button><button class="btn-reorder" onclick="moverIngrediente(${idx},1)" ${idx===efIngredientes.length-1?'disabled':''} title="Bajar" aria-label="Bajar">▼</button>`}</td>
-      <td style="font-size:12px;padding:4px 6px">${ing.nombre}${pastPill(ordenPast(ing))}</td>
+      <td style="font-size:12px;padding:4px 6px"><span class="ef-ing-name" onclick="efCambiarIng(${idx})" title="Clic para cambiar este ingrediente por otro (mantiene el peso)">${ing.nombre}</span>${pastPill(ordenPast(ing))}</td>
       <td style="text-align:right;padding:3px 4px"><input type="number" step="0.1" min="0" value="${f2(fi.porcentaje)}" style="width:62px;padding:2px 5px;border:1.5px solid #356B60;border-radius:3px;font-size:12px;font-weight:700;color:#356B60;text-align:right" onchange="efIngredientes[${idx}].porcentaje=parseFloat(this.value)||0;renderEfIngredientes()" title="Cantidad base 100"></td>
       <td style="text-align:right;font-weight:600;color:#3C7B6F;font-size:11px;padding:3px 4px">${f2(fi.porcentaje/sumaPesos*100)}%</td>
       <td style="text-align:right">${f2(ing.azucares*p)}</td>
@@ -2713,6 +2721,31 @@ function confirmarEliminarIng(idx) {
 let _dragIdx = null;
 
 // Reordenar con botones ▲/▼ (táctil + ratón)
+// Cambiar un ingrediente de la fórmula por otro (mantiene el peso/%)
+function efCambiarIng(idx){
+  const fila = document.querySelector('#ef-ing-tbody tr[data-idx="'+idx+'"]');
+  if(!fila) return;
+  const cell = fila.children[1]; // 2ª celda = nombre
+  if(!cell || cell.querySelector('select')) return;
+  const actual = efIngredientes[idx] ? efIngredientes[idx].ing_id : null;
+  const porFam = {};
+  ingredientes.forEach(i => { (porFam[i.familia] = porFam[i.familia] || []).push(i); });
+  const fams = Object.keys(porFam).sort((a,b)=>a.localeCompare(b));
+  let opts = '';
+  fams.forEach(f => {
+    opts += '<optgroup label="'+f+'">';
+    porFam[f].sort((a,b)=>a.nombre.localeCompare(b.nombre)).forEach(i => {
+      opts += '<option value="'+i.id+'"'+(i.id===actual?' selected':'')+'>'+i.nombre+'</option>';
+    });
+    opts += '</optgroup>';
+  });
+  cell.innerHTML = '<select style="width:100%;max-width:190px;padding:3px 5px;border:1.5px solid #356B60;border-radius:5px;font-size:12px;font-weight:600;color:#21403C" '+
+    'onchange="if(efIngredientes['+idx+']){efIngredientes['+idx+'].ing_id=parseInt(this.value);} renderEfIngredientes();" '+
+    'onblur="renderEfIngredientes();">'+opts+'</select>';
+  const sel = cell.querySelector('select');
+  if(sel){ sel.focus(); }
+}
+
 function moverIngrediente(idx, dir) {
   const j = idx + dir;
   if (j < 0 || j >= efIngredientes.length) return;
