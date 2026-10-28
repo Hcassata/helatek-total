@@ -1737,9 +1737,28 @@ function panelEscandallo(f, costeKg, sinPrecio, conPrecio) {
       (toppings.length?filasTop:'<div style="padding:9px 12px;font-size:11px;color:var(--gris3)">'+EL('Sin complementos. No afectan a la formulación (PAC, composición), solo al coste final por cubeta.','No add-ons. They do not affect the formulation, only the final cost per tub.','Nessun complemento. Non incidono sulla formulazione, solo sul costo finale a vaschetta.','Keine Extras. Beeinflussen nicht die Rezeptur, nur die Endkosten pro Wanne.')+'</div>')+
     '</div>';
 
-  // simulador de precio/beneficio
-  const simulador =
-    '<details style="margin-top:14px;border:1px solid #ECE8E0;border-radius:10px;overflow:hidden">'+
+  // simulador de precio/beneficio — en DEMO va bloqueado (solo COMPLETA)
+  const simulador = ES_DEMO ?
+    ('<div style="margin-top:14px;border:1px dashed #E3A85C;border-radius:10px;overflow:hidden;background:#FBF5EC">'+
+      '<div style="padding:8px 12px;font-size:12px;font-weight:800;color:#b45309">📈 '+EL('Simulador de precio y beneficio','Price & profit simulator','Simulatore prezzo e profitto','Preis- & Gewinnsimulator')+'</div>'+
+      '<div style="position:relative;padding:12px">'+
+        '<div style="filter:blur(3px);opacity:.5;pointer-events:none;user-select:none">'+
+          '<div style="display:flex;gap:10px;flex-wrap:wrap">'+
+            '<div><div style="font-size:10px;color:#6E6A61;font-weight:700;text-transform:uppercase;margin-bottom:3px">'+EL('Coste cubeta','Tub cost','Costo vasch.','Wannenkosten')+'</div><div style="'+inp+';width:100px;background:#fff">'+f2(costeTotalCubeta)+'</div></div>'+
+            '<div><div style="font-size:10px;color:#6E6A61;font-weight:700;text-transform:uppercase;margin-bottom:3px">'+EL('Margen deseado','Target margin','Margine obiettivo','Zielmarge')+' %</div><div style="'+inp+';width:80px;background:#fff">'+margenObj+'</div></div>'+
+            '<div><div style="font-size:10px;color:#6E6A61;font-weight:700;text-transform:uppercase;margin-bottom:3px">'+EL('Cubetas/semana','Tubs/week','Vaschette/sett.','Wannen/Woche')+'</div><div style="'+inp+';width:80px;background:#fff">30</div></div>'+
+          '</div>'+
+          '<div style="margin-top:10px;height:46px;background:#fff;border-radius:6px"></div>'+
+        '</div>'+
+        '<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:10px">'+
+          '<div style="font-size:26px;line-height:1">🔒</div>'+
+          '<div style="font-size:13px;font-weight:800;color:#b45309;margin-top:4px">'+EL('Disponible en la versión COMPLETA','Available in the FULL version','Disponibile nella versione COMPLETA','Nur in der VOLLVERSION')+'</div>'+
+          '<div style="font-size:11px;color:#6E6A61;margin-top:2px">'+EL('Proyección de beneficio semanal, mensual y anual.','Weekly, monthly and yearly profit projection.','Proiezione di profitto settimanale, mensile e annuale.','Wöchentliche, monatliche und jährliche Gewinnprognose.')+'</div>'+
+        '</div>'+
+      '</div>'+
+    '</div>')
+  :
+    ('<details style="margin-top:14px;border:1px solid #ECE8E0;border-radius:10px;overflow:hidden">'+
       '<summary style="background:#F7F5F0;padding:8px 12px;font-size:12px;font-weight:800;color:var(--azul);cursor:pointer">📈 '+EL('Simulador de precio y beneficio','Price & profit simulator','Simulatore prezzo e profitto','Preis- & Gewinnsimulator')+'</summary>'+
       '<div style="padding:12px">'+
         '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">'+
@@ -1751,7 +1770,7 @@ function panelEscandallo(f, costeKg, sinPrecio, conPrecio) {
         '</div>'+
         '<div id="sim-out-'+id+'" style="margin-top:12px"></div>'+
       '</div>'+
-    '</details>';
+    '</details>');
 
   // multiplicador por receta
   const multRow =
