@@ -524,6 +524,25 @@
       <p style="font-size:11px;color:var(--gris3);margin-top:8px">El multiplicador aplica tu margen mayorista (habitual 1.7–1.9). La temperatura de vitrina es la referencia del termómetro de servicio.</p>
     </div>
     <div class="cfg-section">
+      <h3>🫙 Unidad de producción y costes fijos</h3>
+      <p style="font-size:12px;color:var(--gris3);margin-bottom:10px">La cubeta es la unidad de producción (habitual 4 kg). Los costes fijos se suman a <strong>cada cubeta</strong> de cualquier sabor.</p>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px 20px;max-width:600px">
+        <div class="form-row"><label style="min-width:120px">Kilos por cubeta</label><input id="cfg-kgcubeta" type="number" step="0.5" min="0.5" style="flex:1;padding:7px 10px;border:1px solid var(--gris2);border-radius:5px"></div>
+        <div class="form-row"><label style="min-width:80px">IVA (%)</label><input id="cfg-iva" type="number" step="1" min="0" style="flex:1;padding:7px 10px;border:1px solid var(--gris2);border-radius:5px"></div>
+        <div class="form-row"><label style="min-width:130px">Margen objetivo (%)</label><input id="cfg-margenobj" type="number" step="1" min="0" style="flex:1;padding:7px 10px;border:1px solid var(--gris2);border-radius:5px"></div>
+      </div>
+      <div style="font-size:12px;font-weight:700;color:var(--azul);margin:14px 0 8px">Costes fijos por cubeta (€)</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px 20px;max-width:600px">
+        <div class="form-row"><label style="min-width:90px">Envase</label><input id="cfg-cf-envase" type="number" step="0.01" min="0" style="flex:1;padding:7px 10px;border:1px solid var(--gris2);border-radius:5px"></div>
+        <div class="form-row"><label style="min-width:60px">Tapa</label><input id="cfg-cf-tapa" type="number" step="0.01" min="0" style="flex:1;padding:7px 10px;border:1px solid var(--gris2);border-radius:5px"></div>
+        <div class="form-row"><label style="min-width:70px">Etiqueta</label><input id="cfg-cf-etiqueta" type="number" step="0.01" min="0" style="flex:1;padding:7px 10px;border:1px solid var(--gris2);border-radius:5px"></div>
+        <div class="form-row"><label style="min-width:100px">Mano de obra</label><input id="cfg-cf-manoobra" type="number" step="0.01" min="0" style="flex:1;padding:7px 10px;border:1px solid var(--gris2);border-radius:5px"></div>
+        <div class="form-row"><label style="min-width:60px">Luz</label><input id="cfg-cf-luz" type="number" step="0.01" min="0" style="flex:1;padding:7px 10px;border:1px solid var(--gris2);border-radius:5px"></div>
+        <div class="form-row"><label style="min-width:100px">Amortización</label><input id="cfg-cf-amortizacion" type="number" step="0.01" min="0" style="flex:1;padding:7px 10px;border:1px solid var(--gris2);border-radius:5px"></div>
+      </div>
+      <p style="font-size:11px;color:var(--gris3);margin-top:8px">Estos importes son por cubeta y se aplican a todos los sabores. Los complementos/toppings se añaden en cada receta (afectan al coste, no a la formulación).</p>
+    </div>
+    <div class="cfg-section">
       <h3>📊 Límites de Equilibrios</h3>
       <p style="font-size:12px;color:var(--gris3);margin-bottom:10px">Verde = dentro del rango, Rojo = fuera del rango</p>
       <div class="lim-grid" id="lim-grid"></div>
@@ -1061,6 +1080,11 @@ function loadConfig() {
       minST:30, maxST:42, minPOD:17, maxPOD:22, minPAC:-14, maxPAC:-10
     }
   };
+  // Defaults no destructivos para el escandallo profesional (cubeta + costes fijos + IVA)
+  if (cfg.kgCubeta == null) cfg.kgCubeta = 4;
+  if (cfg.iva == null) cfg.iva = 10;
+  if (cfg.margenObj == null) cfg.margenObj = 60;
+  if (!cfg.costesFijos) cfg.costesFijos = { envase:0, tapa:0, etiqueta:0, manoObra:0, luz:0, amortizacion:0 };
 }
 function saveConfig() {
   cfg.version = '2.3';
@@ -1596,34 +1620,210 @@ function termometroServicio(pac) {
     </div>`;
 }
 
-// ── ESCANDALLO: coste, PVP sugerido y margen ──
-function panelEscandallo(costeKg, sinPrecio, conPrecio) {
+// ── TOPPINGS / COMPLEMENTOS: no afectan a la formulación, sí al escandallo ──
+function toppingCoste(tp){
+  if(!tp) return 0;
+  if(tp.modo==='eur') return parseFloat(tp.eur)||0;
+  return ((parseFloat(tp.gramos)||0)/1000)*(parseFloat(tp.eurKg)||0);
+}
+function toppingAdd(id){
+  const f=formulas.find(x=>x.id===id); if(!f) return;
+  if(!f.toppings) f.toppings=[];
+  f.toppings.push({nombre:'',modo:'g',ing_id:null,gramos:0,eurKg:0,eur:0});
+  saveData(); renderDetalleFormula(id);
+}
+function toppingDel(id,i){
+  const f=formulas.find(x=>x.id===id); if(!f||!f.toppings) return;
+  f.toppings.splice(i,1); saveData(); renderDetalleFormula(id);
+}
+function toppingSet(id,i,campo,val){
+  const f=formulas.find(x=>x.id===id); if(!f||!f.toppings||!f.toppings[i]) return;
+  const tp=f.toppings[i];
+  if(campo==='ing'){
+    const ing=ingredientes.find(x=>x.id===parseInt(val));
+    if(ing){ tp.ing_id=ing.id; if(!tp.nombre) tp.nombre=ing.nombre; tp.eurKg=ing.precio||0; }
+    else { tp.ing_id=null; }
+  } else if(campo==='modo'){ tp.modo=val; }
+  else if(campo==='nombre'){ tp.nombre=val; }
+  else if(campo==='gramos'){ tp.gramos=parseFloat(val)||0; }
+  else if(campo==='eurKg'){ tp.eurKg=parseFloat(val)||0; }
+  else if(campo==='eur'){ tp.eur=parseFloat(val)||0; }
+  saveData(); renderDetalleFormula(id);
+}
+// Multiplicador propio de la receta (sobrescribe el global). Vacío = usar el global.
+function efMultSet(id,val){
+  const f=formulas.find(x=>x.id===id); if(!f) return;
+  const v=parseFloat(val);
+  if(isNaN(v)||v<=0) delete f.mult; else f.mult=v;
+  saveData(); renderDetalleFormula(id);
+}
+
+// ── ESCANDALLO PROFESIONAL: cubeta, costes fijos, toppings, PVP, margen, IVA ──
+function panelEscandallo(f, costeKg, sinPrecio, conPrecio) {
+  const EL=(es,en,it,de)=>[es,en,it,de][LANG]||es;
   const mon = cfg.moneda || '€';
-  const mult = cfg.multiplicador || 1.8;
-  const pvp = costeKg * mult;
-  const margen = pvp > 0 ? ((pvp - costeKg) / pvp * 100) : 0;
+  const kgC = cfg.kgCubeta || 4;
+  const iva = (cfg.iva!=null ? cfg.iva : 10);
+  const cf = cfg.costesFijos || {};
+  const cfSum = (cf.envase||0)+(cf.tapa||0)+(cf.etiqueta||0)+(cf.manoObra||0)+(cf.luz||0)+(cf.amortizacion||0);
+  const toppings = f.toppings || [];
+  const topSum = toppings.reduce((s,tp)=>s+toppingCoste(tp),0);
+  const mult = (f.mult && f.mult>0) ? f.mult : (cfg.multiplicador||1.8);
+  const multPropio = !!(f.mult && f.mult>0);
+
+  const costeIngKg = costeKg;
+  const costeIngCubeta = costeKg * kgC;
+  const costeTotalCubeta = costeIngCubeta + topSum + cfSum;
+  const costeTotalKg = kgC>0 ? costeTotalCubeta/kgC : 0;
+  const pvpCubeta = costeTotalCubeta * mult;
+  const pvpCubetaIva = pvpCubeta * (1+iva/100);
+  const margen = pvpCubeta>0 ? ((pvpCubeta-costeTotalCubeta)/pvpCubeta*100) : 0;
+  const pvpKg = costeTotalKg * mult;
+  const margenObj = (cfg.margenObj!=null?cfg.margenObj:60);
+  const colMargen = margen>=margenObj ? '#16a34a' : (margen>=margenObj-10 ? '#b45309' : '#dc2626');
+
   const aviso = sinPrecio > 0
     ? `<div style="font-size:11px;color:#b45309;background:#fef9f0;border-radius:6px;padding:6px 10px;margin-top:8px">⚠️ ${sinPrecio} ${t('esc.noPrice')}</div>`
     : '';
+
+  // opciones de ingredientes para los toppings "por gramos"
+  const porFam={}; ingredientes.forEach(i=>{(porFam[i.familia]=porFam[i.familia]||[]).push(i);});
+  const fams=Object.keys(porFam).sort((a,b)=>a.localeCompare(b));
+  function ingOpts(sel){
+    let o='<option value="">'+EL('— manual —','— manual —','— manuale —','— manuell —')+'</option>';
+    fams.forEach(fm=>{ o+='<optgroup label="'+fm+'">';
+      porFam[fm].sort((a,b)=>a.nombre.localeCompare(b.nombre)).forEach(i=>{
+        o+='<option value="'+i.id+'"'+(i.id===sel?' selected':'')+'>'+i.nombre+'</option>'; });
+      o+='</optgroup>'; });
+    return o;
+  }
+  const id=f.id;
+  const inp='padding:4px 6px;border:1px solid var(--gris2);border-radius:5px;font-size:12px';
+  // filas de toppings
+  const filasTop = toppings.map((tp,i)=>{
+    const c=toppingCoste(tp);
+    const camposG =
+      '<select onchange="toppingSet('+id+','+i+',\'ing\',this.value)" style="'+inp+';max-width:150px" title="Tomar el precio de un ingrediente del listado">'+ingOpts(tp.ing_id)+'</select>'+
+      '<input type="number" step="1" min="0" value="'+(tp.gramos||0)+'" onchange="toppingSet('+id+','+i+',\'gramos\',this.value)" style="'+inp+';width:72px" title="Gramos por cubeta"> <span style="font-size:11px;color:var(--gris3)">g/cubeta</span>'+
+      '<input type="number" step="0.01" min="0" value="'+(tp.eurKg||0)+'" onchange="toppingSet('+id+','+i+',\'eurKg\',this.value)" style="'+inp+';width:72px" title="Precio por kg"> <span style="font-size:11px;color:var(--gris3)">'+mon+'/kg</span>';
+    const camposE =
+      '<input type="number" step="0.01" min="0" value="'+(tp.eur||0)+'" onchange="toppingSet('+id+','+i+',\'eur\',this.value)" style="'+inp+';width:90px" title="Importe fijo por cubeta"> <span style="font-size:11px;color:var(--gris3)">'+mon+'/cubeta</span>';
+    return '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:7px 8px;border-bottom:1px solid #F0ECE4">'+
+      '<input type="text" value="'+(tp.nombre||'').replace(/"/g,'&quot;')+'" placeholder="'+EL('Nombre','Name','Nome','Name')+'" onchange="toppingSet('+id+','+i+',\'nombre\',this.value)" style="'+inp+';width:130px">'+
+      '<select onchange="toppingSet('+id+','+i+',\'modo\',this.value)" style="'+inp+'">'+
+        '<option value="g"'+(tp.modo!=='eur'?' selected':'')+'>'+EL('Por gramos','By grams','A grammi','Nach Gramm')+'</option>'+
+        '<option value="eur"'+(tp.modo==='eur'?' selected':'')+'>'+EL('€ fijo/cubeta','€ fixed/tub','€ fisso/vasch.','€ fix/Wanne')+'</option>'+
+      '</select>'+
+      (tp.modo==='eur'?camposE:camposG)+
+      '<span style="margin-left:auto;font-weight:800;color:#21403C;font-size:13px">'+f2(c)+' '+mon+'</span>'+
+      '<button onclick="toppingDel('+id+','+i+')" title="Quitar" style="background:none;border:none;color:#dc2626;cursor:pointer;font-size:14px;font-weight:700">✖</button>'+
+    '</div>';
+  }).join('');
+
+  const seccionToppings =
+    '<div style="margin-top:14px;border:1px solid #ECE8E0;border-radius:10px;overflow:hidden">'+
+      '<div style="display:flex;align-items:center;justify-content:space-between;background:#F7F5F0;padding:8px 12px">'+
+        '<span style="font-size:12px;font-weight:800;color:var(--azul)">🍪 '+EL('Toppings / Complementos','Toppings / Add-ons','Toppings / Complementi','Toppings / Extras')+'</span>'+
+        '<button onclick="toppingAdd('+id+')" class="btn btn-sm" style="background:var(--verde);color:#fff;font-size:12px;padding:4px 10px">+ '+EL('Añadir','Add','Aggiungi','Hinzufügen')+'</button>'+
+      '</div>'+
+      (toppings.length?filasTop:'<div style="padding:9px 12px;font-size:11px;color:var(--gris3)">'+EL('Sin complementos. No afectan a la formulación (PAC, composición), solo al coste final por cubeta.','No add-ons. They do not affect the formulation, only the final cost per tub.','Nessun complemento. Non incidono sulla formulazione, solo sul costo finale a vaschetta.','Keine Extras. Beeinflussen nicht die Rezeptur, nur die Endkosten pro Wanne.')+'</div>')+
+    '</div>';
+
+  // simulador de precio/beneficio
+  const simulador =
+    '<details style="margin-top:14px;border:1px solid #ECE8E0;border-radius:10px;overflow:hidden">'+
+      '<summary style="background:#F7F5F0;padding:8px 12px;font-size:12px;font-weight:800;color:var(--azul);cursor:pointer">📈 '+EL('Simulador de precio y beneficio','Price & profit simulator','Simulatore prezzo e profitto','Preis- & Gewinnsimulator')+'</summary>'+
+      '<div style="padding:12px">'+
+        '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">'+
+          '<div><div style="font-size:10px;color:#6E6A61;font-weight:700;text-transform:uppercase;margin-bottom:3px">'+EL('Coste cubeta','Tub cost','Costo vasch.','Wannenkosten')+'</div><input id="sim-coste-'+id+'" type="number" step="0.01" value="'+f2(costeTotalCubeta)+'" style="'+inp+';width:100px"> '+mon+'</div>'+
+          '<div><div style="font-size:10px;color:#6E6A61;font-weight:700;text-transform:uppercase;margin-bottom:3px">'+EL('Margen deseado','Target margin','Margine obiettivo','Zielmarge')+' %</div><input id="sim-margen-'+id+'" type="number" step="1" value="'+margenObj+'" style="'+inp+';width:80px"></div>'+
+          '<div><div style="font-size:10px;color:#6E6A61;font-weight:700;text-transform:uppercase;margin-bottom:3px">IVA %</div><input id="sim-iva-'+id+'" type="number" step="1" value="'+iva+'" style="'+inp+';width:70px"></div>'+
+          '<div><div style="font-size:10px;color:#6E6A61;font-weight:700;text-transform:uppercase;margin-bottom:3px">'+EL('Cubetas/semana','Tubs/week','Vaschette/sett.','Wannen/Woche')+'</div><input id="sim-cub-'+id+'" type="number" step="1" value="30" style="'+inp+';width:80px"></div>'+
+          '<button onclick="simularPrecio('+id+')" class="btn btn-green btn-sm" style="font-size:12px;padding:6px 14px">'+EL('Calcular','Calculate','Calcola','Berechnen')+'</button>'+
+        '</div>'+
+        '<div id="sim-out-'+id+'" style="margin-top:12px"></div>'+
+      '</div>'+
+    '</details>';
+
+  // multiplicador por receta
+  const multRow =
+    '<div style="display:flex;align-items:center;gap:8px;margin-top:12px;flex-wrap:wrap">'+
+      '<span style="font-size:12px;color:#6E6A61;font-weight:700">'+EL('Multiplicador de esta receta','Multiplier for this recipe','Moltiplicatore di questa ricetta','Multiplikator dieses Rezepts')+':</span>'+
+      '<input type="number" step="0.05" min="0" value="'+(multPropio?mult:'')+'" placeholder="'+(cfg.multiplicador||1.8)+'" onchange="efMultSet('+id+',this.value)" style="'+inp+';width:80px">'+
+      '<span style="font-size:11px;color:var(--gris3)">'+(multPropio?EL('(propio)','(own)','(proprio)','(eigen)'):EL('(usa el global ×'+(cfg.multiplicador||1.8)+')','(uses global ×'+(cfg.multiplicador||1.8)+')','(usa il globale ×'+(cfg.multiplicador||1.8)+')','(nutzt global ×'+(cfg.multiplicador||1.8)+')'))+'</span>'+
+    '</div>';
+
+  const chip=(lab,val,col,bg)=>'<div style="background:'+bg+';border-radius:8px;padding:9px 12px;border-left:4px solid '+col+'"><div style="font-size:10px;color:#6E6A61;font-weight:700;text-transform:uppercase;letter-spacing:.3px;margin-bottom:3px">'+lab+'</div><div style="font-size:19px;font-weight:800;color:'+col+'">'+val+'</div></div>';
+
   return `
     <div style="margin-top:12px;background:white;border:1px solid #ECE8E0;border-radius:12px;padding:14px 16px;box-shadow:0 2px 8px rgba(33,64,60,0.05)">
-      <div style="font-size:12px;font-weight:800;color:var(--azul);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">${t('esc.title')}</div>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
-        <div style="background:#F0F7F3;border-radius:8px;padding:10px 14px;border-left:4px solid var(--gris3)">
-          <div style="font-size:10px;color:#6E6A61;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">${t('hero.cost')}</div>
-          <div style="font-size:22px;font-weight:800;color:#21403C">${f2(costeKg)} ${mon}</div>
-        </div>
-        <div style="background:#EAF6EF;border-radius:8px;padding:10px 14px;border-left:4px solid #16a34a">
-          <div style="font-size:10px;color:#6E6A61;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">${t('esc.pvp')} (×${mult})</div>
-          <div style="font-size:22px;font-weight:800;color:#16a34a">${f2(pvp)} ${mon}</div>
-        </div>
-        <div style="background:#fef9f0;border-radius:8px;padding:10px 14px;border-left:4px solid #f59e0b">
-          <div style="font-size:10px;color:#6E6A61;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">${t('esc.margin')}</div>
-          <div style="font-size:22px;font-weight:800;color:#b45309">${f1(margen)}%</div>
-        </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;margin-bottom:10px">
+        <div style="font-size:12px;font-weight:800;color:var(--azul);text-transform:uppercase;letter-spacing:.5px">${EL('💰 Escandallo profesional','💰 Professional costing','💰 Costo professionale','💰 Profi-Kalkulation')}</div>
+        <div style="font-size:11px;color:var(--gris3)">${EL('Cubeta','Tub','Vaschetta','Wanne')} = <strong>${f1(kgC)} kg</strong> · ×${f2(mult)}${multPropio?' ('+EL('propio','own','proprio','eigen')+')':''} · IVA ${f0(iva)}%</div>
       </div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:8px">
+        ${chip(EL('Ingredientes/cubeta','Ingredients/tub','Ingredienti/vasch.','Zutaten/Wanne'), f2(costeIngCubeta)+' '+mon, 'var(--gris3)','#F0F7F3')}
+        ${chip(EL('Toppings/cubeta','Add-ons/tub','Complementi/vasch.','Extras/Wanne'), f2(topSum)+' '+mon, '#8a6bb0','#F4F0F9')}
+        ${chip(EL('Costes fijos/cubeta','Fixed costs/tub','Costi fissi/vasch.','Fixkosten/Wanne'), f2(cfSum)+' '+mon, '#E3A85C','#FBF5EC')}
+        ${chip(EL('Coste total cubeta','Total tub cost','Costo totale vasch.','Gesamt/Wanne'), f2(costeTotalCubeta)+' '+mon, '#21403C','#EEF3F1')}
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+        ${chip(EL('PVP cubeta (sin IVA)','Retail/tub (excl. VAT)','Prezzo/vasch. (no IVA)','VK/Wanne (o. MwSt)'), f2(pvpCubeta)+' '+mon, '#16a34a','#EAF6EF')}
+        ${chip(EL('PVP cubeta (con IVA)','Retail/tub (incl. VAT)','Prezzo/vasch. (IVA)','VK/Wanne (m. MwSt)'), f2(pvpCubetaIva)+' '+mon, '#15803d','#EAF6EF')}
+        ${chip(EL('Margen s/venta','Margin on sale','Margine su vendita','Marge/Verkauf'), f1(margen)+'%', colMargen,'#fef9f0')}
+        ${chip(EL('PVP por kg','Retail per kg','Prezzo al kg','VK pro kg'), f2(pvpKg)+' '+mon, '#0e7490','#ECF6F8')}
+      </div>
+      ${multRow}
+      ${seccionToppings}
+      ${simulador}
       ${aviso}
     </div>`;
+}
+
+// Simulador: calcula PVP desde margen deseado y proyecta beneficio
+function simularPrecio(id){
+  const EL=(es,en,it,de)=>[es,en,it,de][LANG]||es;
+  const g=x=>document.getElementById(x+'-'+id);
+  const out=g('sim-out'); if(!out) return;
+  const mon=cfg.moneda||'€';
+  const coste=parseFloat(g('sim-coste').value)||0;
+  const margen=parseFloat(g('sim-margen').value)||0;
+  const iva=parseFloat(g('sim-iva').value)||0;
+  const cub=parseFloat(g('sim-cub').value)||0;
+  const margenObj=(cfg.margenObj!=null?cfg.margenObj:60);
+  const pvp = margen<100 ? coste/(1-margen/100) : 0;
+  const pvpIva = pvp*(1+iva/100);
+  const benefCub = pvp-coste;
+  const resumen =
+    '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px">'+
+      '<div style="background:#EAF6EF;border-radius:8px;padding:9px 12px"><div style="font-size:10px;color:#6E6A61;font-weight:700;text-transform:uppercase">'+EL('PVP sin IVA','Price excl. VAT','Prezzo no IVA','Preis o. MwSt')+'</div><div style="font-size:18px;font-weight:800;color:#16a34a">'+f2(pvp)+' '+mon+'</div></div>'+
+      '<div style="background:#EAF6EF;border-radius:8px;padding:9px 12px"><div style="font-size:10px;color:#6E6A61;font-weight:700;text-transform:uppercase">'+EL('PVP con IVA','Price incl. VAT','Prezzo IVA','Preis m. MwSt')+'</div><div style="font-size:18px;font-weight:800;color:#15803d">'+f2(pvpIva)+' '+mon+'</div></div>'+
+      '<div style="background:#fef9f0;border-radius:8px;padding:9px 12px"><div style="font-size:10px;color:#6E6A61;font-weight:700;text-transform:uppercase">'+EL('Beneficio/cubeta','Profit/tub','Profitto/vasch.','Gewinn/Wanne')+'</div><div style="font-size:18px;font-weight:800;color:#b45309">'+f2(benefCub)+' '+mon+'</div></div>'+
+      '<div style="background:#EEF3F1;border-radius:8px;padding:9px 12px"><div style="font-size:10px;color:#6E6A61;font-weight:700;text-transform:uppercase">'+EL('Beneficio/año','Profit/year','Profitto/anno','Gewinn/Jahr')+'</div><div style="font-size:18px;font-weight:800;color:#21403C">'+f0(benefCub*cub*52)+' '+mon+'</div></div>'+
+    '</div>';
+  const mults=[1.5,1.7,1.8,1.9,2.0,2.5];
+  const filas=mults.map(m=>{
+    const p=coste*m, mg=(1-1/m)*100, bC=p-coste, sem=bC*cub, anio=sem*52;
+    const col= mg>=margenObj ? '#16a34a' : (mg>=margenObj-10 ? '#b45309' : '#dc2626');
+    return '<tr><td style="padding:6px 8px;font-weight:700">×'+f2(m)+'</td>'+
+      '<td style="padding:6px 8px;text-align:right">'+f2(p)+' '+mon+'</td>'+
+      '<td style="padding:6px 8px;text-align:right;color:'+col+';font-weight:700">'+f1(mg)+'%</td>'+
+      '<td style="padding:6px 8px;text-align:right">'+f2(bC)+' '+mon+'</td>'+
+      '<td style="padding:6px 8px;text-align:right">'+f0(sem)+' '+mon+'</td>'+
+      '<td style="padding:6px 8px;text-align:right;font-weight:700">'+f0(anio)+' '+mon+'</td></tr>';
+  }).join('');
+  const tabla =
+    '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">'+
+      '<thead><tr style="background:#21403C;color:#fff">'+
+        '<th style="padding:6px 8px;text-align:left">×</th>'+
+        '<th style="padding:6px 8px;text-align:right">'+EL('PVP s/IVA','Price','Prezzo','Preis')+'</th>'+
+        '<th style="padding:6px 8px;text-align:right">'+EL('Margen','Margin','Margine','Marge')+'</th>'+
+        '<th style="padding:6px 8px;text-align:right">'+EL('Benef./cubeta','Profit/tub','Prof./vasch.','Gewinn/Wanne')+'</th>'+
+        '<th style="padding:6px 8px;text-align:right">'+EL('Benef./semana','Profit/week','Prof./sett.','Gewinn/Woche')+'</th>'+
+        '<th style="padding:6px 8px;text-align:right">'+EL('Benef./año','Profit/year','Prof./anno','Gewinn/Jahr')+'</th>'+
+      '</tr></thead><tbody>'+filas+'</tbody></table></div>'+
+      '<div style="font-size:11px;color:var(--gris3);margin-top:6px">'+EL('Beneficio bruto estimado para '+f0(cub)+' cubetas/semana. Verde = margen ≥ objetivo ('+f0(margenObj)+'%).','Estimated gross profit for '+f0(cub)+' tubs/week. Green = margin ≥ target ('+f0(margenObj)+'%).','Profitto lordo stimato per '+f0(cub)+' vaschette/sett. Verde = margine ≥ obiettivo ('+f0(margenObj)+'%).','Geschätzter Bruttogewinn für '+f0(cub)+' Wannen/Woche. Grün = Marge ≥ Ziel ('+f0(margenObj)+'%).')+'</div>';
+  out.innerHTML = resumen + tabla;
 }
 
 // ── FRANJA HERO: PAC / POD / estado destacados arriba del detalle ──
@@ -2056,7 +2256,7 @@ function renderDetalleFormula(id) {
         </div>
         ${termometroServicio(tot.pac)}
         ${curvaCongelacion(ings, totalPct)}
-        ${panelEscandallo(costeKg, ingSinPrecio, ingConPrecio)}
+        ${panelEscandallo(f, costeKg, ingSinPrecio, ingConPrecio)}
         ${radarEquilibrio([
           {lab:'PAC', v:tot.pac, lo:lim.minPAC, hi:lim.maxPAC},
           {lab:'POD', v:tot.pod, lo:lim.minPOD, hi:lim.maxPOD},
@@ -2427,6 +2627,16 @@ function renderConfig() {
   document.getElementById('cfg-mult').value=cfg.multiplicador||1.8;
   document.getElementById('cfg-moneda').value=cfg.moneda||'€';
   document.getElementById('cfg-tempvit').value=(cfg.tempVitrina!=null?cfg.tempVitrina:-13);
+  document.getElementById('cfg-kgcubeta').value=cfg.kgCubeta||4;
+  document.getElementById('cfg-iva').value=(cfg.iva!=null?cfg.iva:10);
+  document.getElementById('cfg-margenobj').value=(cfg.margenObj!=null?cfg.margenObj:60);
+  const cf = cfg.costesFijos || {};
+  document.getElementById('cfg-cf-envase').value=cf.envase||0;
+  document.getElementById('cfg-cf-tapa').value=cf.tapa||0;
+  document.getElementById('cfg-cf-etiqueta').value=cf.etiqueta||0;
+  document.getElementById('cfg-cf-manoobra').value=cf.manoObra||0;
+  document.getElementById('cfg-cf-luz').value=cf.luz||0;
+  document.getElementById('cfg-cf-amortizacion').value=cf.amortizacion||0;
   const lim = cfg.limites;
   const limFields = [
     ['Azúcares (%)','minAz','maxAz'],['GT Grasa Total (MG+OG) (%)','minMg','maxMg'],
@@ -2451,6 +2661,17 @@ function guardarConfig() {
   cfg.multiplicador=parseFloat(document.getElementById('cfg-mult').value)||1.8;
   cfg.moneda=(document.getElementById('cfg-moneda').value||'€').trim();
   cfg.tempVitrina=parseFloat(document.getElementById('cfg-tempvit').value); if(isNaN(cfg.tempVitrina))cfg.tempVitrina=-13;
+  cfg.kgCubeta=parseFloat(document.getElementById('cfg-kgcubeta').value)||4;
+  cfg.iva=parseFloat(document.getElementById('cfg-iva').value); if(isNaN(cfg.iva))cfg.iva=10;
+  cfg.margenObj=parseFloat(document.getElementById('cfg-margenobj').value); if(isNaN(cfg.margenObj))cfg.margenObj=60;
+  cfg.costesFijos={
+    envase:parseFloat(document.getElementById('cfg-cf-envase').value)||0,
+    tapa:parseFloat(document.getElementById('cfg-cf-tapa').value)||0,
+    etiqueta:parseFloat(document.getElementById('cfg-cf-etiqueta').value)||0,
+    manoObra:parseFloat(document.getElementById('cfg-cf-manoobra').value)||0,
+    luz:parseFloat(document.getElementById('cfg-cf-luz').value)||0,
+    amortizacion:parseFloat(document.getElementById('cfg-cf-amortizacion').value)||0
+  };
   const lf = ['minAz','maxAz','minMg','maxMg','minEsml','maxEsml','minProt','maxProt',
                'minLact','maxLact','minST','maxST','minPOD','maxPOD','minPAC','maxPAC'];
   lf.forEach(k => { cfg.limites[k]=parseFloat(document.getElementById('lim-'+k).value)||0; });
@@ -2461,6 +2682,7 @@ function guardarConfig() {
 // ============================================================
 // UTILIDADES
 // ============================================================
+function f0(v) { return Math.round(parseFloat(v)||0).toLocaleString('es-ES'); }
 function f1(v) { return (parseFloat(v)||0).toFixed(1); }
 function f2(v) { return (parseFloat(v)||0).toFixed(2); }
 function pf(id) { return parseFloat(document.getElementById(id).value)||0; }
