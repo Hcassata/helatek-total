@@ -1145,7 +1145,7 @@ const I18N = {
   'lbl.balances':['Equilibrios:','Balances:','Bilanciamenti:','Bilanzierung:'],
   'th.ingredient':['Ingrediente','Ingredient','Ingrediente','Zutat'],
   'th.base100':['Base 100','Base 100','Base 100','Basis 100'],
-  'th.weight':['Peso(g)','Weight(g)','Peso(g)','Gewicht(g)'],
+  'th.weight':['Peso(kg)','Weight(kg)','Peso(kg)','Gewicht(kg)'],
   'lbl.totals':['TOTALES','TOTALS','TOTALI','GESAMT'],
   'card.totalSugars':['Total Azúcares','Total Sugars','Zuccheri Totali','Zucker gesamt'],
   'card.totalFat':['Grasa Total (MG+OG)','Total Fat (MG+OG)','Grasso Totale (MG+OG)','Fett gesamt (MG+OG)'],
@@ -2192,7 +2192,7 @@ function renderDetalleFormula(id) {
     return `<tr style="background:${idx%2?'#FBFAF6':'white'}">
       <td style="padding:6px 10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${ing.nombre}">${ing.nombre}</td>
       <td style="text-align:center;padding:6px 4px">${f2(fi.porcentaje)}</td>
-      <td style="text-align:center;padding:6px 4px;font-weight:600;color:#356B60">${f1(pesoG)}g</td>
+      <td style="text-align:center;padding:6px 4px;font-weight:600;color:#356B60">${(pesoG/1000).toFixed(3)} kg</td>
       <td style="text-align:center;padding:6px 4px">${f2(ing.azucares*p)}</td>
       <td style="text-align:center;padding:6px 4px">${f2(ing.mg*p)}</td>
       <td style="text-align:center;padding:6px 4px">${f2(ing.og*p)}</td>
@@ -2209,7 +2209,7 @@ function renderDetalleFormula(id) {
   const totalesRow = `<tr class="totales-row" style="background:var(--azul);font-weight:bold">
     <td style="padding:7px 10px">${t('lbl.totals')}</td>
     <td style="text-align:right;padding:7px 8px">${f2(totalPct)}</td>
-    <td style="text-align:right;padding:7px 8px;font-weight:800">${f1(colTot.peso)}g</td>
+    <td style="text-align:right;padding:7px 8px;font-weight:800">${(colTot.peso/1000).toFixed(3)} kg</td>
     <td style="text-align:right;padding:7px 8px">${f2(colTot.az)}</td>
     <td style="text-align:right;padding:7px 8px">${f2(colTot.mg)}</td>
     <td style="text-align:right;padding:7px 8px">${f2(colTot.og)}</td>
@@ -2321,7 +2321,7 @@ function renderDetalleFormula(id) {
         </div>
       <div style="background:#21403C;color:white;border-radius:0 0 8px 8px;padding:8px 16px;font-size:12px;font-weight:600;border-top:2px solid rgba(255,255,255,0.2);position:sticky;bottom:0;z-index:10" class="total-bar">
         ${Math.abs(tot.pct-100)<0.01?'✅':'⚠️'} ${t('bar.total')} <strong>${f2(tot.pct)}%</strong>
-        &nbsp;|&nbsp; ${t('bar.totalWeight')} <strong>${f1(totalGrams)}g</strong>
+        &nbsp;|&nbsp; ${t('bar.totalWeight')} <strong>${(totalGrams/1000).toFixed(3)} kg</strong>
         &nbsp;|&nbsp; Kcal/100g: <strong>${f1(tot.kcal)}</strong>
       </div>
     </div>`;
@@ -2781,17 +2781,17 @@ function renderObrador() {
     acum += g;
     const peso = obrState.modo==='acc' ? acum : g;
     const done = !!obrState.done[idx];
-    const pesoTxt = peso>=100 ? f1(peso) : f2(peso);
+    const pesoTxt = (peso/1000).toFixed(3);
     return `<div class="obr-row ${done?'done':''}" onclick="toggleObrItem(${idx})">
       <div class="obr-check">${done?'✓':''}</div>
       <div class="obr-name">${x.nombre}</div>
-      <div class="obr-peso">${pesoTxt}<small> g${obrState.modo==='acc'?' ·'+t('obr.cumLabel'):''}</small></div>
+      <div class="obr-peso">${pesoTxt}<small> kg${obrState.modo==='acc'?' ·'+t('obr.cumLabel'):''}</small></div>
     </div>`;
   }).join('') || `<div style="padding:30px;text-align:center;color:var(--gris3)">${t('obr.empty')}</div>`;
   document.getElementById('obr-lista').innerHTML = rows;
   const hechos = ings.filter((_,i)=>obrState.done[i]).length;
   document.getElementById('obr-progreso').textContent =
-    `${hechos}/${ings.length} ${t('obr.weighed')} · ${t('obr.batch')} ${f1(gramosTot)} g`;
+    `${hechos}/${ings.length} ${t('obr.weighed')} · ${t('obr.batch')} ${(gramosTot/1000).toFixed(3)} kg`;
 }
 
 function poblarSelectFamilias(selId, valActual) {
@@ -2832,7 +2832,7 @@ function aplicarCantidad(id) {
   if (!window._cantGrams) window._cantGrams = {};
   window._cantGrams[id] = kg * 1000;
   const lbl = document.getElementById('cant-label-'+id);
-  if (lbl) lbl.textContent = '→ ' + f1(kg*1000) + ' g';
+  if (lbl) lbl.textContent = '→ ' + kg + ' kg';
   renderDetalleFormula(id);
 }
 
