@@ -403,9 +403,9 @@
   <div id="pg-ingredientes" class="page">
     <div class="page-header"><h2 data-i18n="hdr.ing.t">🧪 Ingredientes</h2><span data-i18n="hdr.ing.s">Gestión completa de ingredientes y parámetros nutricionales</span><span class="demo-badge">DEMO</span></div>
     <div class="toolbar">
-      <!-- DEMO: añadir ingredientes deshabilitado -->
       <input type="text" id="ing-buscar" placeholder="🔍 Buscar..." oninput="renderIngredientes()" style="width:180px">
       <select id="ing-fam-filtro" onchange="renderIngredientes()"><option value="">Todas las familias</option></select>
+      <button class="btn btn-green btn-sm" onclick="nuevoIngrediente()" style="margin-left:auto">➕ Añadir ingrediente</button>
     </div>
     <div class="tbl-wrap">
       <table id="ing-table">
@@ -1046,6 +1046,27 @@ function loadData() {
       orden_past:d[13]||0, peso_mol_az:d[14]||0, comentarios:comentStr
     };
   });
+  // Añadir los ingredientes PERSONALIZADOS del usuario (los que no están en la lista por defecto).
+  // Los por defecto se mantienen siempre frescos; solo se conservan los nuevos que tú creas.
+  try {
+    const savedIng = store.get('hkt_ingredientes');
+    if (savedIng) {
+      const defNames = new Set(ingredientes.map(i => (i.nombre||'').toLowerCase().trim()));
+      JSON.parse(savedIng).forEach(si => {
+        if (si && si.nombre && !defNames.has(String(si.nombre).toLowerCase().trim())) {
+          ingredientes.push({
+            id: (typeof si.id === 'number' ? si.id : Date.now()+Math.floor(Math.random()*100000)),
+            nombre: si.nombre, familia: si.familia || 'Varios',
+            azucares:+si.azucares||0, mg:+si.mg||0, og:+si.og||0, esml:+si.esml||0,
+            proteinas:+si.proteinas||0, lactosa:+si.lactosa||0, os:+si.os||0,
+            alcohol:+si.alcohol||0, pac:+si.pac||0, pod:+si.pod||0, kcal:+si.kcal||0,
+            precio:+si.precio||0, orden_past:+si.orden_past||0, peso_mol_az:+si.peso_mol_az||1,
+            comentarios: si.comentarios||'', custom:true
+          });
+        }
+      });
+    }
+  } catch(e){}
   if (savedFam) {
     familias = JSON.parse(savedFam);
     formulas = JSON.parse(savedForm||'[]');
@@ -1347,6 +1368,10 @@ function selIngrediente(id) {
   if (row) row.classList.add('sel');
 }
 
+function nuevoIngrediente(){
+  if (ES_DEMO) { alert('🔒 Añadir ingredientes está disponible solo en la versión COMPLETA de Helatek.\n\nLa versión completa la gestiona Pablo Galiana (Gelats Galiana).'); return; }
+  abrirNuevoIngrediente();
+}
 function abrirNuevoIngrediente() {
   document.getElementById('modal-ing-titulo').textContent = '➕ Nuevo Ingrediente';
   document.getElementById('ing-edit-id').value = '';
