@@ -46,6 +46,11 @@ async function guardar(){
     if(!session){ throw new Error('sin-sesion'); }
     const { error } = await sbc.auth.updateUser({ password: p1 });
     if(error) throw error;
+    // marcar que la contraseña la cambió el cliente (el admin ya no puede verla)
+    try{
+      const { data:{ user } } = await sbc.auth.getUser();
+      if(user) await sbc.from('credenciales').upsert({ user_id: user.id, pass_visible: null, pass_cliente: true, updated_at: new Date().toISOString() });
+    }catch(e){ /* no bloquea el cambio de contraseña */ }
     document.getElementById('form').innerHTML='<p class="ok">✅ Contraseña guardada.<br>Ya puedes entrar en Helatek con tu nueva contraseña.</p>';
   }catch(e){
     if(e.message==='sin-sesion') msg.textContent='El enlace no es válido o ha caducado. Pide uno nuevo al administrador.';
