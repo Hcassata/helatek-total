@@ -2230,6 +2230,7 @@ function renderDetalleFormula(id) {
         <button class="btn btn-orange btn-sm" onclick="duplicarFormula()" data-i18n="btn.duplicate">📄 Duplicar</button>
         <button class="btn btn-red btn-sm" onclick="eliminarFormula()" data-i18n="btn.delete">🗑️ Eliminar</button>
         <button class="btn btn-green btn-sm" onclick="abrirObrador(${f.id})" data-i18n="btn.obrador">👷 Obrador</button>
+        <button class="btn btn-sm" onclick="abrirEtiqueta(${f.id})" style="background:#8a6bb0;color:#fff">🏷️ Etiqueta</button>
         <button class="btn btn-gray btn-sm" onclick="imprimirFormula(${f.id})" style="background:#6E6A61" data-i18n="btn.print">🖨️ Imprimir</button>
         </div>
       </div>
@@ -3104,6 +3105,119 @@ function initDragDrop() {
 // ══════════════════════════════════════════════════
 // IMPRIMIR FÓRMULA
 // ══════════════════════════════════════════════════
+
+// Guarda el logo (lo llama la ventana de etiqueta vía window.opener)
+function guardarLogoEtiqueta(b64){ try{ cfg.logoEtiqueta = b64; saveConfig(); }catch(e){} }
+
+// ── DISEÑADOR DE ETIQUETAS (Reglamento UE 1169/2011) con tamaño libre + logo ──
+function abrirEtiqueta(fid){
+  var f = formulas.find(function(x){ return x.id===fid; });
+  if(!f) return;
+  var r1 = function(x){ return Math.round((x||0)*10)/10; };
+  var ings = (f.ingredientes||[]).map(function(fi){
+    var ing = ingredientes.find(function(i){ return i.id===fi.ing_id; });
+    return ing ? {nombre:ing.nombre, pct:fi.porcentaje||0, aler:alergenosDe(ing).length>0} : null;
+  }).filter(Boolean).filter(function(x){ return x.pct>0; }).sort(function(a,b){ return b.pct-a.pct; });
+  var set = {};
+  (f.ingredientes||[]).forEach(function(fi){ var ing=ingredientes.find(function(i){return i.id===fi.ing_id;}); if(ing) alergenosDe(ing).forEach(function(a){ set[a]=1; }); });
+  var contiene = ALERGENOS.filter(function(a){ return set[a.c]; }).map(function(a){ return a.n[LANG]||a.n[0]; });
+  var n = nutricionDe(f);
+  var emp = [cfg.empresa||'', cfg.calle||'', [cfg.poblacion,cfg.provincia].filter(Boolean).join(' · ')].filter(Boolean);
+  var D = {
+    denom: 'Helado de ' + f.nombre,
+    ings: ings,
+    contiene: contiene,
+    n: {kj:Math.round(n.kj), kcal:Math.round(n.kcal), grasa:r1(n.grasa), sat:r1(n.sat), carbs:r1(n.carbs), az:r1(n.azucares), prot:r1(n.prot)},
+    empresa: emp,
+    logo: cfg.logoEtiqueta || ''
+  };
+  var json = JSON.stringify(D).replace(/</g,'\\u003c');
+  var html = ''
+    + '<!doctype html><html><head><meta charset="utf-8"><title>Etiqueta · ' + (f.nombre||'') + '</title>'
+    + '<style>'
+    + 'body{margin:0;font-family:Arial,Helvetica,sans-serif;background:#e9e7e2;color:#21403C}'
+    + '.bar{background:#21403C;color:#fff;padding:9px 12px;display:flex;flex-wrap:wrap;gap:12px;align-items:center;font-size:13px}'
+    + '.bar input[type=number]{width:60px;padding:4px 6px;border-radius:4px;border:none}'
+    + '.bar button{background:#4E9184;color:#fff;border:none;padding:5px 10px;border-radius:5px;cursor:pointer;font-size:12px}'
+    + '.panel{background:#f6f4ef;padding:9px 12px;display:flex;flex-wrap:wrap;gap:14px;border-bottom:1px solid #ddd;font-size:12px}'
+    + '.panel label{display:flex;gap:5px;align-items:center;cursor:pointer}'
+    + '.wrap{padding:26px;display:flex;justify-content:center}'
+    + '#etq{background:#fff;box-shadow:0 3px 16px rgba(0,0,0,.22);box-sizing:border-box;padding:3mm;overflow:hidden;color:#000;font-size:10px}'
+    + '#etq .den{font-weight:800;font-size:1.3em;line-height:1.1;margin-bottom:1mm}'
+    + '#etq .blk{font-size:.95em;line-height:1.25;margin:0.7mm 0}'
+    + '#etq .lab{font-weight:700}'
+    + '#etq table{border-collapse:collapse;width:100%;font-size:.9em;margin-top:0.5mm}'
+    + '#etq td{border-top:1px solid #000;padding:0.3mm 0.5mm}'
+    + '#etq td.r{text-align:right;white-space:nowrap}'
+    + '#etq .ind{padding-left:3mm;color:#333}'
+    + '#etq img.logo{max-height:13mm;max-width:48%;display:block;margin-bottom:1mm;object-fit:contain}'
+    + '#etq .emp{font-size:.8em;color:#222;margin-top:1mm;border-top:1px solid #999;padding-top:0.6mm}'
+    + '[contenteditable]:focus{outline:1px dashed #4E9184}'
+    + '@media print{.bar,.panel{display:none!important}body{background:#fff}.wrap{padding:0}#etq{box-shadow:none}}'
+    + '</style><style id="ps">@page{size:100mm 60mm;margin:0}</style></head><body>'
+    + '<div class="bar">'
+    +   '<strong>🏷️ Diseñador de etiqueta</strong>'
+    +   '<span>Ancho <input type="number" id="w" value="100" min="20" max="200" step="1"> mm</span>'
+    +   '<span>Alto <input type="number" id="h" value="60" min="20" max="300" step="1"> mm</span>'
+    +   '<span>Presets: <button data-p="100,60">100×60</button> <button data-p="100,50">100×50</button> <button data-p="60,40">60×40</button> <button data-p="50,30">50×30</button></span>'
+    +   '<span>Letra <input type="range" id="fs" min="7" max="18" value="10"></span>'
+    +   '<span>Logo <input type="file" id="logoin" accept="image/*" style="font-size:11px;width:150px"></span>'
+    +   '<button id="logodel">Quitar logo</button>'
+    +   '<button id="printbtn" style="margin-left:auto;background:#16a34a;font-weight:700;padding:7px 16px">🖨️ Imprimir</button>'
+    + '</div>'
+    + '<div class="panel">'
+    +   '<label><input type="checkbox" class="st" data-s="logo" checked> Logo</label>'
+    +   '<label><input type="checkbox" class="st" data-s="den" checked> Denominación</label>'
+    +   '<label><input type="checkbox" class="st" data-s="ing" checked> Ingredientes</label>'
+    +   '<label><input type="checkbox" class="st" data-s="cont" checked> Contiene (alérgenos)</label>'
+    +   '<label><input type="checkbox" class="st" data-s="nut" checked> Tabla nutricional</label>'
+    +   '<label><input type="checkbox" class="st" data-s="cons" checked> Conservación</label>'
+    +   '<label><input type="checkbox" class="st" data-s="lote" checked> Lote / Consumo</label>'
+    +   '<label><input type="checkbox" class="st" data-s="emp" checked> Empresa</label>'
+    + '</div>'
+    + '<div class="wrap"><div id="etq"></div></div>'
+    + '<script>'
+    + 'var D=' + json + ';'
+    + 'function esc(s){return (s||"").replace(/[&<>]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;"}[c];});}'
+    + 'function ingList(){return D.ings.map(function(i){var nm=esc(i.nombre);return i.aler?("<strong>"+nm+"</strong>"):nm;}).join(", ");}'
+    + 'function nutTable(){var n=D.n;return "<table>"'
+    +   '+"<tr><td class=\\"lab\\">Valor energético</td><td class=\\"r\\">"+n.kj+" kJ / "+n.kcal+" kcal</td></tr>"'
+    +   '+"<tr><td class=\\"lab\\">Grasas</td><td class=\\"r\\">"+n.grasa+" g</td></tr>"'
+    +   '+"<tr><td class=\\"ind\\">de las cuales saturadas (estim.)</td><td class=\\"r\\">"+n.sat+" g</td></tr>"'
+    +   '+"<tr><td class=\\"lab\\">Hidratos de carbono</td><td class=\\"r\\">"+n.carbs+" g</td></tr>"'
+    +   '+"<tr><td class=\\"ind\\">de los cuales azúcares</td><td class=\\"r\\">"+n.az+" g</td></tr>"'
+    +   '+"<tr><td class=\\"lab\\">Proteínas</td><td class=\\"r\\">"+n.prot+" g</td></tr>"'
+    +   '+"<tr><td class=\\"lab\\">Sal</td><td class=\\"r\\">≈ 0 g</td></tr>"'
+    +   '+"</table>";}'
+    + 'function build(){'
+    +   'var logo = D.logo?("<img class=\\"logo\\" id=\\"lg\\" src=\\""+D.logo+"\\">"):"<img class=\\"logo\\" id=\\"lg\\" style=\\"display:none\\">";'
+    +   'var cont = D.contiene.length?("<div class=\\"blk\\" id=\\"s-cont\\" contenteditable><span class=\\"lab\\">Contiene:</span> "+D.contiene.join(", ")+".</div>"):"";'
+    +   'var html = "<div id=\\"s-logo\\">"+logo+"</div>"'
+    +     '+"<div class=\\"den\\" id=\\"s-den\\" contenteditable>"+esc(D.denom)+"</div>"'
+    +     '+"<div class=\\"blk\\" id=\\"s-ing\\" contenteditable><span class=\\"lab\\">Ingredientes:</span> "+ingList()+".</div>"'
+    +     '+cont'
+    +     '+"<div id=\\"s-nut\\"><div class=\\"blk lab\\">Información nutricional (por 100 g)</div>"+nutTable()+"</div>"'
+    +     '+"<div class=\\"blk\\" id=\\"s-cons\\" contenteditable>Conservar a -18 °C. No volver a congelar una vez descongelado.</div>"'
+    +     '+"<div class=\\"blk\\" id=\\"s-lote\\" contenteditable><span class=\\"lab\\">Lote:</span> ________  ·  <span class=\\"lab\\">Consumo preferente:</span> __________</div>"'
+    +     '+"<div class=\\"emp\\" id=\\"s-emp\\" contenteditable>"+D.empresa.map(esc).join(" · ")+"</div>";'
+    +   'document.getElementById("etq").innerHTML=html;'
+    + '}'
+    + 'function applySize(){var w=+document.getElementById("w").value||100,h=+document.getElementById("h").value||60;var e=document.getElementById("etq");e.style.width=w+"mm";e.style.height=h+"mm";document.getElementById("ps").textContent="@page{size:"+w+"mm "+h+"mm;margin:0}";}'
+    + 'build();applySize();'
+    + 'document.getElementById("etq").style.fontSize="10px";'
+    + 'document.getElementById("w").addEventListener("input",applySize);'
+    + 'document.getElementById("h").addEventListener("input",applySize);'
+    + 'document.getElementById("fs").addEventListener("input",function(){document.getElementById("etq").style.fontSize=this.value+"px";});'
+    + 'Array.prototype.forEach.call(document.querySelectorAll(".bar button[data-p]"),function(b){b.addEventListener("click",function(){var p=this.getAttribute("data-p").split(",");document.getElementById("w").value=p[0];document.getElementById("h").value=p[1];applySize();});});'
+    + 'Array.prototype.forEach.call(document.querySelectorAll(".st"),function(c){c.addEventListener("change",function(){var el=document.getElementById("s-"+this.getAttribute("data-s"));if(el)el.style.display=this.checked?"":"none";});});'
+    + 'document.getElementById("logoin").addEventListener("change",function(e){var file=e.target.files[0];if(!file)return;var rd=new FileReader();rd.onload=function(){var img=document.getElementById("lg");img.src=rd.result;img.style.display="";try{if(window.opener&&window.opener.guardarLogoEtiqueta)window.opener.guardarLogoEtiqueta(rd.result);}catch(x){}};rd.readAsDataURL(file);});'
+    + 'document.getElementById("logodel").addEventListener("click",function(){var img=document.getElementById("lg");img.src="";img.style.display="none";try{if(window.opener&&window.opener.guardarLogoEtiqueta)window.opener.guardarLogoEtiqueta("");}catch(x){}});'
+    + 'document.getElementById("printbtn").addEventListener("click",function(){window.print();});'
+    + '<\/script></body></html>';
+  var w = window.open('', '_blank');
+  if(!w){ alert('Permite las ventanas emergentes para abrir el diseñador de etiqueta.'); return; }
+  w.document.write(html); w.document.close();
+}
 
 function imprimirFormula(fid) {
   var f = formulas.find(function(x){ return x.id === fid; });
