@@ -3111,6 +3111,7 @@ function guardarLogoEtiqueta(b64){ try{ cfg.logoEtiqueta = b64; saveConfig(); }c
 
 // ── DISEÑADOR DE ETIQUETAS (Reglamento UE 1169/2011) con tamaño libre + logo ──
 function abrirEtiqueta(fid){
+  if (ES_DEMO) { alert('🔒 El diseñador de etiquetas está disponible solo en la versión COMPLETA de Helatek.\n\nLa versión completa la gestiona Pablo Galiana (Gelats Galiana).'); return; }
   var f = formulas.find(function(x){ return x.id===fid; });
   if(!f) return;
   var r1 = function(x){ return Math.round((x||0)*10)/10; };
