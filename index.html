@@ -585,6 +585,22 @@
           <div class="form-row" style="margin:0"><label style="min-width:160px;font-size:13px">Peso Molecular Azúcares</label><input id="ing-peso-mol" type="number" step="1" value="1" style="width:90px;padding:5px 8px;border:1px solid var(--gris2);border-radius:4px;font-size:13px;text-align:right"></div>
         </div>
       </div>
+      <div style="margin-top:10px;border:1px solid #e0d6ef;border-radius:6px;padding:12px;background:#F6F2FB">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:6px">
+          <div style="font-size:11px;font-weight:bold;color:#6b4e9e;text-transform:uppercase;letter-spacing:.5px">🏷️ Valor nutricional (por 100 g)</div>
+          <label style="font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:600;color:#6b4e9e"><input type="checkbox" id="ing-nut-manual" onchange="toggleNutManual()" style="width:auto;margin:0;padding:0"> Introducir manualmente</label>
+        </div>
+        <div id="ing-nut-note" style="font-size:11px;color:#6E6A61;margin-bottom:8px">Automático: se calcula desde los macros (azúcares, grasas, proteínas, alcohol) con factores Atwater. Marca la casilla para meter los valores a mano.</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 20px">
+          <div class="form-row" style="margin:0"><label style="min-width:160px;font-size:13px">Energía (kcal)</label><input id="ing-n-kcal" type="number" step="0.1" value="0" style="width:90px;padding:5px 8px;border:1px solid var(--gris2);border-radius:4px;font-size:13px;text-align:right"></div>
+          <div class="form-row" style="margin:0"><label style="min-width:160px;font-size:13px">Grasas (g)</label><input id="ing-n-grasa" type="number" step="0.1" value="0" style="width:90px;padding:5px 8px;border:1px solid var(--gris2);border-radius:4px;font-size:13px;text-align:right"></div>
+          <div class="form-row" style="margin:0"><label style="min-width:160px;font-size:13px">— de las cuales saturadas (g)</label><input id="ing-n-sat" type="number" step="0.1" value="0" style="width:90px;padding:5px 8px;border:1px solid var(--gris2);border-radius:4px;font-size:13px;text-align:right"></div>
+          <div class="form-row" style="margin:0"><label style="min-width:160px;font-size:13px">Hidratos de carbono (g)</label><input id="ing-n-carbs" type="number" step="0.1" value="0" style="width:90px;padding:5px 8px;border:1px solid var(--gris2);border-radius:4px;font-size:13px;text-align:right"></div>
+          <div class="form-row" style="margin:0"><label style="min-width:160px;font-size:13px">— de los cuales azúcares (g)</label><input id="ing-n-az" type="number" step="0.1" value="0" style="width:90px;padding:5px 8px;border:1px solid var(--gris2);border-radius:4px;font-size:13px;text-align:right"></div>
+          <div class="form-row" style="margin:0"><label style="min-width:160px;font-size:13px">Proteínas (g)</label><input id="ing-n-prot" type="number" step="0.1" value="0" style="width:90px;padding:5px 8px;border:1px solid var(--gris2);border-radius:4px;font-size:13px;text-align:right"></div>
+          <div class="form-row" style="margin:0"><label style="min-width:160px;font-size:13px">Sal (g)</label><input id="ing-n-sal" type="number" step="0.01" value="0" style="width:90px;padding:5px 8px;border:1px solid var(--gris2);border-radius:4px;font-size:13px;text-align:right"></div>
+        </div>
+      </div>
       <div style="margin-top:8px">
         <label style="font-size:13px;font-weight:600;color:var(--azul);display:block;margin-bottom:4px">Comentarios</label>
         <textarea id="ing-comentarios" style="width:100%;height:60px;padding:6px 10px;border:1px solid var(--gris2);border-radius:5px;font-size:13px;resize:vertical"></textarea>
@@ -1067,6 +1083,14 @@ function loadData() {
       });
     }
   } catch(e){}
+  // Aplicar valores nutricionales manuales guardados (por nombre; vale para por-defecto y personalizados)
+  try {
+    const over = JSON.parse(store.get('hk_ing_over')||'{}');
+    ingredientes.forEach(ing => {
+      const o = over[(ing.nombre||'').toLowerCase().trim()];
+      if (o && o.nutManual && o.n100) { ing.nutManual = true; ing.n100 = o.n100; }
+    });
+  } catch(e){}
   if (savedFam) {
     familias = JSON.parse(savedFam);
     formulas = JSON.parse(savedForm||'[]');
@@ -1372,6 +1396,40 @@ function nuevoIngrediente(){
   if (ES_DEMO) { alert('🔒 Añadir ingredientes está disponible solo en la versión COMPLETA de Helatek.\n\nLa versión completa la gestiona Pablo Galiana (Gelats Galiana).'); return; }
   abrirNuevoIngrediente();
 }
+
+// ── VALOR NUTRICIONAL del ingrediente (auto desde macros / manual) ──
+function nutAutoFromMacros(m){
+  var carbs=(+m.azucares||0)+(+m.lactosa||0);
+  var grasa=(+m.mg||0)+(+m.og||0);
+  var sat=0.63*(+m.mg||0)+0.30*(+m.og||0);
+  var prot=(+m.proteinas||0);
+  var alc=(+m.alcohol||0);
+  var kcal=4*carbs+9*grasa+4*prot+7*alc;
+  var r=function(x){return Math.round(x*10)/10;};
+  return {kcal:r(kcal), grasa:r(grasa), sat:r(sat), carbs:r(carbs), az:r(carbs), prot:r(prot), sal:0};
+}
+function nutModalMacros(){
+  return {azucares:pf('ing-azucares'),mg:pf('ing-mg'),og:pf('ing-og'),lactosa:pf('ing-lact'),proteinas:pf('ing-prot'),alcohol:pf('ing-alcohol')};
+}
+function setNutFields(v){
+  document.getElementById('ing-n-kcal').value=v.kcal||0;
+  document.getElementById('ing-n-grasa').value=v.grasa||0;
+  document.getElementById('ing-n-sat').value=v.sat||0;
+  document.getElementById('ing-n-carbs').value=v.carbs||0;
+  document.getElementById('ing-n-az').value=v.az||0;
+  document.getElementById('ing-n-prot').value=v.prot||0;
+  document.getElementById('ing-n-sal').value=v.sal||0;
+}
+function nutFieldsEnabled(on){
+  ['ing-n-kcal','ing-n-grasa','ing-n-sat','ing-n-carbs','ing-n-az','ing-n-prot','ing-n-sal'].forEach(function(id){var el=document.getElementById(id); if(el){ el.disabled=!on; el.style.background=on?'#fff':'#ececec'; }});
+}
+function toggleNutManual(){
+  var man=document.getElementById('ing-nut-manual').checked;
+  var note=document.getElementById('ing-nut-note');
+  if(man){ if(note) note.textContent='Manual: estos valores se usarán tal cual en fichas y etiquetas.'; nutFieldsEnabled(true); }
+  else { if(note) note.textContent='Automático: se calcula desde los macros (azúcares, grasas, proteínas, alcohol) con factores Atwater.'; setNutFields(nutAutoFromMacros(nutModalMacros())); nutFieldsEnabled(false); }
+}
+
 function abrirNuevoIngrediente() {
   document.getElementById('modal-ing-titulo').textContent = '➕ Nuevo Ingrediente';
   document.getElementById('ing-edit-id').value = '';
@@ -1380,6 +1438,8 @@ function abrirNuevoIngrediente() {
   const opEl=document.getElementById('ing-orden-past'); if(opEl) opEl.value=0;
   const pmEl=document.getElementById('ing-peso-mol'); if(pmEl) pmEl.value=1;
   poblarSelectFamilias('ing-familia', '');
+  document.getElementById('ing-nut-manual').checked=false;
+  toggleNutManual();
   abrirModal('modal-ing');
 }
 
@@ -1405,6 +1465,12 @@ function abrirEditarIngrediente(id) {
   document.getElementById('ing-peso-mol').value = i.peso_mol_az||1;
   document.getElementById('ing-comentarios').value = i.comentarios||'';
   poblarSelectFamilias('ing-familia', i.familia);
+  // valor nutricional
+  document.getElementById('ing-nut-manual').checked = !!i.nutManual;
+  if (i.nutManual && i.n100) {
+    setNutFields({kcal:i.n100.kcal||0, grasa:i.n100.grasa||0, sat:i.n100.sat||0, carbs:i.n100.carbs||0, az:i.n100.az||0, prot:i.n100.prot||0, sal:i.n100.sal||0});
+  }
+  toggleNutManual();
   abrirModal('modal-ing');
 }
 
@@ -1425,6 +1491,13 @@ function guardarIngrediente() {
     orden_past: pf('ing-orden-past'), peso_mol_az: pf('ing-peso-mol'),
     comentarios: document.getElementById('ing-comentarios').value
   };
+  // valor nutricional (manual o automático)
+  const nutMan = document.getElementById('ing-nut-manual').checked;
+  datos.nutManual = nutMan;
+  datos.n100 = nutMan ? {
+    kcal: pf('ing-n-kcal'), grasa: pf('ing-n-grasa'), sat: pf('ing-n-sat'),
+    carbs: pf('ing-n-carbs'), az: pf('ing-n-az'), prot: pf('ing-n-prot'), sal: pf('ing-n-sal')
+  } : null;
   const editId = parseInt(document.getElementById('ing-edit-id').value);
   if (editId) {
     const idx = ingredientes.findIndex(i=>i.id===editId);
@@ -1433,10 +1506,22 @@ function guardarIngrediente() {
     datos.id = Date.now();
     ingredientes.push(datos);
   }
+  guardarNutOverride(datos.nombre, nutMan, datos.n100);
   saveData();
   cerrarModal('modal-ing');
   renderIngredientes();
   renderInicio();
+}
+// Guarda el valor nutricional manual por nombre para que persista también en los ingredientes por defecto
+function guardarNutOverride(nombre, nutManual, n100){
+  try{
+    const over = JSON.parse(store.get('hk_ing_over')||'{}');
+    const k = (nombre||'').toLowerCase().trim();
+    if (nutManual && n100) over[k] = {nutManual:true, n100:n100};
+    else delete over[k];
+    store.set('hk_ing_over', JSON.stringify(over));
+    if (typeof pushCloudSoon==='function') pushCloudSoon();
+  }catch(e){}
 }
 
 function eliminarIngredienteSelec() {
@@ -2111,19 +2196,31 @@ function alergenosDe(ing){
   return [...r];
 }
 // ── NUTRICIÓN por 100 g (energía por factores Atwater sobre los macros) ──
+// Valor nutricional por 100 g de UN ingrediente: manual si lo tiene, si no automático desde macros
+function ingNut100(ing){
+  if (ing && ing.nutManual && ing.n100) {
+    const m = ing.n100;
+    return {kcal:+m.kcal||0, grasa:+m.grasa||0, sat:+m.sat||0, carbs:+m.carbs||0, az:+m.az||0, prot:+m.prot||0, sal:+m.sal||0};
+  }
+  const carbs=(ing.azucares||0)+(ing.lactosa||0);
+  const grasa=(ing.mg||0)+(ing.og||0);
+  const sat=0.63*(ing.mg||0)+0.30*(ing.og||0);
+  const prot=ing.proteinas||0;
+  const alc=ing.alcohol||0;
+  const kcal=4*carbs+9*grasa+4*prot+7*alc;
+  return {kcal, grasa, sat, carbs, az:carbs, prot, sal:0};
+}
 function nutricionDe(f){
-  const t = calcularTotales(f);
   const ings=(f.ingredientes||[]).map(fi=>{const ing=ingredientes.find(i=>i.id===fi.ing_id);return ing?{...fi,ing}:null;}).filter(Boolean);
   const suma=ings.reduce((s,fi)=>s+(fi.porcentaje||0),0)||100;
-  let alc=0; ings.forEach(fi=>{ alc+=(fi.ing.alcohol||0)*(fi.porcentaje/suma); });
-  const azucares=t.az+t.lact;
-  const carbs=azucares;              // en helado, los hidratos son casi todo azúcares
-  const grasa=t.gt;
-  const sat=0.63*t.mg+0.30*t.og;     // estimación: grasa láctea ~63% sat, otras ~30%
-  const prot=t.prot;
-  const kcal=4*carbs+9*grasa+4*prot+7*alc;
-  const kj=kcal*4.184;
-  return {kj,kcal,grasa,sat,carbs,azucares,prot,alc};
+  let o={kcal:0,grasa:0,sat:0,carbs:0,az:0,prot:0,sal:0,alc:0};
+  ings.forEach(fi=>{
+    const p=(fi.porcentaje||0)/suma;
+    const n=ingNut100(fi.ing);
+    o.kcal+=n.kcal*p; o.grasa+=n.grasa*p; o.sat+=n.sat*p; o.carbs+=n.carbs*p;
+    o.az+=n.az*p; o.prot+=n.prot*p; o.sal+=(n.sal||0)*p; o.alc+=(fi.ing.alcohol||0)*p;
+  });
+  return {kj:o.kcal*4.184, kcal:o.kcal, grasa:o.grasa, sat:o.sat, carbs:o.carbs, azucares:o.az, prot:o.prot, sal:o.sal, alc:o.alc};
 }
 function fichaAlergenosNutricion(f){
   const L=(a)=>a[LANG]||a[0];
@@ -2149,7 +2246,7 @@ function fichaAlergenosNutricion(f){
       ${fila(L(['Hidratos de carbono','Carbohydrate','Carboidrati','Kohlenhydrate']), d1(n.carbs)+' g', true, false)}
       ${fila(L(['de los cuales azúcares','of which sugars','di cui zuccheri','davon Zucker']), d1(n.azucares)+' g', false, true)}
       ${fila(L(['Proteínas','Protein','Proteine','Eiweiß']), d1(n.prot)+' g', true, false)}
-      ${fila(L(['Sal','Salt','Sale','Salz']), '≈ 0 g', true, false)}
+      ${fila(L(['Sal','Salt','Sale','Salz']), (n.sal>0? d1(n.sal)+' g' : '≈ 0 g'), true, false)}
     </table>
     <div style="font-size:10px;color:#9a948a;margin-top:8px;line-height:1.4">⚠️ ${L(['Valores orientativos calculados automáticamente. Verifica los alérgenos (y posibles trazas) y completa saturadas y sal según tus ingredientes y proveedores antes de usarlos en una etiqueta oficial.','Auto-calculated indicative values. Verify allergens (and possible traces) and complete saturates and salt per your ingredients before using on an official label.','Valori indicativi calcolati automaticamente. Verifica allergeni e completa grassi saturi e sale prima dell’uso su un’etichetta ufficiale.','Automatisch berechnete Richtwerte. Allergene prüfen sowie gesättigte Fette und Salz ergänzen, bevor sie auf einem offiziellen Etikett verwendet werden.'])}</div>
   </div>`;
@@ -3153,7 +3250,7 @@ function abrirEtiqueta(fid){
     denom: 'Helado de ' + f.nombre,
     ings: ings,
     contiene: contiene,
-    n: {kj:Math.round(n.kj), kcal:Math.round(n.kcal), grasa:r1(n.grasa), sat:r1(n.sat), carbs:r1(n.carbs), az:r1(n.azucares), prot:r1(n.prot)},
+    n: {kj:Math.round(n.kj), kcal:Math.round(n.kcal), grasa:r1(n.grasa), sat:r1(n.sat), carbs:r1(n.carbs), az:r1(n.azucares), prot:r1(n.prot), sal:r1(n.sal||0)},
     empresa: emp,
     logo: cfg.logoEtiqueta || ''
   };
@@ -3213,7 +3310,7 @@ function abrirEtiqueta(fid){
     +   '+"<tr><td class=\\"lab\\">Hidratos de carbono</td><td class=\\"r\\">"+n.carbs+" g</td></tr>"'
     +   '+"<tr><td class=\\"ind\\">de los cuales azúcares</td><td class=\\"r\\">"+n.az+" g</td></tr>"'
     +   '+"<tr><td class=\\"lab\\">Proteínas</td><td class=\\"r\\">"+n.prot+" g</td></tr>"'
-    +   '+"<tr><td class=\\"lab\\">Sal</td><td class=\\"r\\">≈ 0 g</td></tr>"'
+    +   '+"<tr><td class=\\"lab\\">Sal</td><td class=\\"r\\">"+(n.sal>0?(n.sal+" g"):"≈ 0 g")+"</td></tr>"'
     +   '+"</table>";}'
     + 'function build(){'
     +   'var logo = D.logo?("<img class=\\"logo\\" id=\\"lg\\" src=\\""+D.logo+"\\">"):"<img class=\\"logo\\" id=\\"lg\\" style=\\"display:none\\">";'
@@ -3507,6 +3604,7 @@ async function pullCloud(){
       if(d.config)       store.set('hkt_config', JSON.stringify(d.config));
       if(d.familias)     store.set('hkt_familias', JSON.stringify(d.familias));
       if(d.ingredientes) store.set('hkt_ingredientes', JSON.stringify(d.ingredientes));
+      if(d.ing_over)     store.set('hk_ing_over', JSON.stringify(d.ing_over));
     } else { _cloudVacio = true; }
   }catch(e){ console.warn('pullCloud (¿sin conexión?)', e); }
 }
@@ -3517,7 +3615,8 @@ async function pushCloud(){
       formulas:     JSON.parse(store.get('hkt_formulas')||'[]'),
       config:       JSON.parse(store.get('hkt_config')||'{}'),
       familias:     JSON.parse(store.get('hkt_familias')||'[]'),
-      ingredientes: JSON.parse(store.get('hkt_ingredientes')||'[]')
+      ingredientes: JSON.parse(store.get('hkt_ingredientes')||'[]'),
+      ing_over:     JSON.parse(store.get('hk_ing_over')||'{}')
     };
     await sb.from('obrador_datos').upsert({ user_id: currentUser.id, datos, updated_at: new Date().toISOString() });
   }catch(e){ console.warn('pushCloud', e); }
