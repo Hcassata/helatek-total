@@ -193,6 +193,9 @@
   #formula-ing-table { border-collapse: separate !important; border-spacing: 0 !important; overflow: visible !important; margin-top: 0 !important; }
   #formula-ing-table thead th { position: sticky; top: 0; z-index: 5; background: var(--azul); }
   #ef-ing-tbody tr.ef-tot-row td { position: sticky; bottom: 0; z-index: 4; }
+  /* Cabecera verde fija en la pestaña Ingredientes */
+  #ing-table { border-collapse: separate !important; border-spacing: 0 !important; overflow: visible !important; }
+  #ing-table thead th { position: sticky; top: 0; z-index: 5; background: var(--azul); box-shadow: inset 0 -1px 0 rgba(255,255,255,.15); }
   .ef-ing-name { cursor:pointer; border-bottom:1px dashed #9BBBB0; }
   .ef-ing-name:hover { color: var(--azul2); border-bottom-color: var(--azul2); }
   .ef-cambiar-item:hover { background:#FBF3EC; }
@@ -1047,8 +1050,8 @@ const store = {
 };
 
 function loadData() {
-  const savedFam = store.get('hkt_familias');
-  const savedForm = store.get('hkt_formulas');
+  const savedFam = store.get('hk_familias');
+  const savedForm = store.get('hk_formulas');
   // Ingredientes SIEMPRE desde DEFAULT_INGREDIENTES (frescos, con alcohol y PM correctos)
   let nextId = 1;
   ingredientes = DEFAULT_INGREDIENTES.map(d => {
@@ -1065,7 +1068,7 @@ function loadData() {
   // Añadir los ingredientes PERSONALIZADOS del usuario (los que no están en la lista por defecto).
   // Los por defecto se mantienen siempre frescos; solo se conservan los nuevos que tú creas.
   try {
-    const savedIng = store.get('hkt_ingredientes');
+    const savedIng = store.get('hk_ingredientes');
     if (savedIng) {
       const defNames = new Set(ingredientes.map(i => (i.nombre||'').toLowerCase().trim()));
       JSON.parse(savedIng).forEach(si => {
@@ -1102,15 +1105,15 @@ function loadData() {
 }
 
 function saveData() {
-  store.set('hkt_familias', JSON.stringify(familias));
-  store.set('hkt_ingredientes', JSON.stringify(ingredientes));
-  store.set('hkt_formulas', JSON.stringify(formulas));
+  store.set('hk_familias', JSON.stringify(familias));
+  store.set('hk_ingredientes', JSON.stringify(ingredientes));
+  store.set('hk_formulas', JSON.stringify(formulas));
   if(typeof pushCloudSoon==='function') pushCloudSoon();
 }
 
 let cfg = {};
 function loadConfig() {
-  const saved = store.get('hkt_config');
+  const saved = store.get('hk_config');
   const VERSION = '2.3';
   let loaded = saved ? JSON.parse(saved) : null;
   // Force reset limits if version changed
@@ -1136,7 +1139,7 @@ function loadConfig() {
 }
 function saveConfig() {
   cfg.version = '2.3';
-  store.set('hkt_config', JSON.stringify(cfg));
+  store.set('hk_config', JSON.stringify(cfg));
   if(typeof pushCloudSoon==='function') pushCloudSoon();
 }
 
@@ -3601,10 +3604,10 @@ async function pullCloud(){
     if(error) throw error;
     if(data && data.datos && Object.keys(data.datos).length){
       const d = data.datos;
-      if(d.formulas)     store.set('hkt_formulas', JSON.stringify(d.formulas));
-      if(d.config)       store.set('hkt_config', JSON.stringify(d.config));
-      if(d.familias)     store.set('hkt_familias', JSON.stringify(d.familias));
-      if(d.ingredientes) store.set('hkt_ingredientes', JSON.stringify(d.ingredientes));
+      if(d.formulas)     store.set('hk_formulas', JSON.stringify(d.formulas));
+      if(d.config)       store.set('hk_config', JSON.stringify(d.config));
+      if(d.familias)     store.set('hk_familias', JSON.stringify(d.familias));
+      if(d.ingredientes) store.set('hk_ingredientes', JSON.stringify(d.ingredientes));
       if(d.ing_over)     store.set('hk_ing_over', JSON.stringify(d.ing_over));
     } else { _cloudVacio = true; }
   }catch(e){ console.warn('pullCloud (¿sin conexión?)', e); }
@@ -3613,10 +3616,10 @@ async function pushCloud(){
   if(!CLOUD_ENABLED || !sb || !currentUser) return;
   try{
     const datos = {
-      formulas:     JSON.parse(store.get('hkt_formulas')||'[]'),
-      config:       JSON.parse(store.get('hkt_config')||'{}'),
-      familias:     JSON.parse(store.get('hkt_familias')||'[]'),
-      ingredientes: JSON.parse(store.get('hkt_ingredientes')||'[]'),
+      formulas:     JSON.parse(store.get('hk_formulas')||'[]'),
+      config:       JSON.parse(store.get('hk_config')||'{}'),
+      familias:     JSON.parse(store.get('hk_familias')||'[]'),
+      ingredientes: JSON.parse(store.get('hk_ingredientes')||'[]'),
       ing_over:     JSON.parse(store.get('hk_ing_over')||'{}')
     };
     await sb.from('obrador_datos').upsert({ user_id: currentUser.id, datos, updated_at: new Date().toISOString() });
@@ -3659,14 +3662,14 @@ async function mostrarBloqueoDispositivo(){
 function cargarDatosLocalesYRender(){
   loadConfig();
   try {
-    const testIng = store.get('hkt_ingredientes');
+    const testIng = store.get('hk_ingredientes');
     if (testIng) {
       const arr = JSON.parse(testIng);
       if (arr.length > 0 && (typeof arr[0].pac === 'undefined' || typeof arr[0].og === 'undefined')) {
-        store.remove('hkt_ingredientes'); store.remove('hkt_familias');
+        store.remove('hk_ingredientes'); store.remove('hk_familias');
       }
     }
-  } catch(e) { store.remove('hkt_ingredientes'); store.remove('hkt_familias'); }
+  } catch(e) { store.remove('hk_ingredientes'); store.remove('hk_familias'); }
   loadData();
   renderInicio();
   setLang(cfg.idioma || 'es');
