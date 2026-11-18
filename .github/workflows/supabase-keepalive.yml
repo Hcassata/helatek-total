@@ -1,0 +1,22 @@
+name: Supabase keep-alive
+# Mantiene el proyecto de Supabase despierto (plan gratuito se pausa a los 7 dias sin actividad).
+# Hace una llamada minima a la API REST con la clave PUBLICA (no secreta).
+on:
+  schedule:
+    - cron: '23 6 * * *'    # cada dia 06:23 UTC
+    - cron: '23 18 * * *'   # cada dia 18:23 UTC
+  workflow_dispatch: {}      # permite lanzarlo a mano
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase REST
+        run: |
+          CODE=$(curl -sS -o /dev/null -w "%{http_code}" \
+            "https://otcvaqijccboixomuwxr.supabase.co/rest/v1/dispositivos?select=id&limit=1" \
+            -H "apikey: sb_publishable_mzxr97ySxjXNTTTOP2xEFQ_Ho9rHIfX" \
+            -H "Authorization: Bearer sb_publishable_mzxr97ySxjXNTTTOP2xEFQ_Ho9rHIfX")
+          echo "HTTP $CODE"
+          # cualquier respuesta del servidor (200/401/200-vacio) cuenta como actividad y evita la pausa
+          if [ -z "$CODE" ] || [ "$CODE" = "000" ]; then echo "Sin respuesta del servidor"; exit 1; fi
+          echo "Supabase respondio: proyecto activo."
